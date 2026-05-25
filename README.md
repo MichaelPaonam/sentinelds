@@ -20,7 +20,6 @@ Five other threats are catalogued in `PLAN.md` §8 as future work.
 ## Repo layout
 
 - `PLAN.md` — full technical plan: threat model, architecture diagram, prerequisites, day-by-day schedule, milestones.
-- `CLAUDE.md` — guidance for Claude Code sessions working in this repo.
 - *(code lands as the schedule progresses)*
 
 ## Status
