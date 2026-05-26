@@ -3,8 +3,44 @@
 **Project:** Securing an agentic data-science workspace with Dynatrace
 **Hackathon:** Google Cloud Rapid Agent Hackathon ([devpost](https://rapid-agent.devpost.com))
 **Partner:** Dynatrace (via MCP)
-**Submission deadline:** 2026-06-11
-**Plan written:** 2026-05-25 (17 days available)
+**Submission deadline:** 2026-06-11 (2:00 PM PDT)
+**Plan written:** 2026-05-25 | **Updated:** 2026-05-26
+**Days remaining:** ~16
+
+---
+
+## 0. Hackathon Rules & Constraints (from Resources + FAQ)
+
+> **These are non-negotiable.** Violating any of these risks disqualification.
+
+### Mandatory architecture requirements
+1. **Powered by Gemini** — all LLM calls must use Gemini models.
+2. **Built within Google Cloud Agent Builder ecosystem** — two valid paths:
+   - **Visual path:** Agent Builder UI console (low-code)
+   - **Code-first path:** Agent Development Kit (ADK) — scaffold, configure, and orchestrate agents via ADK SDK/CLI and deploy to Agent Runtime / Cloud Run
+3. **Integrate at least one partner MCP server** — we use **Dynatrace MCP**.
+
+### What's restricted
+- **LangChain, LangGraph, LlamaIndex cannot be your primary orchestrator.** Agent Builder / ADK must be the orchestrator. *(This settles our Day 1 decision — ADK is the only choice.)*
+- **AI coding tools:** Only Google Cloud AI tools (Gemini, Agent Builder) and partner AI features are permitted. Claude, Cursor, GitHub Copilot are **NOT permitted** — not even for development workflow. **Google AntiGravity is permitted.**
+- **Existing code:** Project must be newly created from scratch during contest period (May 5 – Jun 11, 2026). Reusing old codebases is not allowed; new iteration of an old idea is fine.
+
+### Submission rules
+- Each submission enters **one track only** (we enter Dynatrace track).
+- A single submission can win **one prize maximum**.
+- Project URL must be accessible to judges **without login** (no-login sandbox demo with preloaded sample data is acceptable).
+- Demo video must clearly capture the agent functioning.
+
+### Dynatrace track specifics
+- No sample data provided — use **synthetic telemetry logs, public APM datasets, or local server log outputs**.
+- Judging evaluates **autonomous agent functionality**, not data science model accuracy.
+- A small, hyper-realistic dataset demonstrating clear multi-step agent reasoning beats a massive generic one.
+
+### Billing & credits
+- Google Cloud credits ($100) cover ONLY native GCP services (Vertex AI, Gemini APIs, Cloud Run, Secret Manager, Agent Builder, etc.).
+- Dynatrace credits/trials are accessed independently via the Dynatrace partner resources page.
+- Set up a **budget alert** in GCP Console → Billing → Budgets & alerts.
+- Clean up daily: delete/pause Cloud Run services, Agent Builder instances when not building.
 
 ---
 
@@ -38,6 +74,7 @@ The "wow" moment: the **Sentinel Agent** notices Davis AI has flagged the worksp
 ```
 +-----------------------------------------------------------------------+
 |                       SentinelDS Workspace                            |
+|                   (Google Cloud Agent Builder / ADK)                   |
 |                                                                       |
 |  +---------------+   +-------------------+   +-------------------+    |
 |  |  Research     |   |  Feature Eng.     |   |    Modelling      |    |
@@ -73,6 +110,9 @@ The "wow" moment: the **Sentinel Agent** notices Davis AI has flagged the worksp
 |  +---------------------------------------------------------------+    |
 +-----------------------------------------------------------------------+
 
+Deployment: ADK → Agent Runtime / Cloud Run (GCP)
+Demo: No-login sandbox with preloaded synthetic telemetry data
+
 Attack surfaces (red):
    A1: Research Agent fetches malicious page  --> prompt-injection payload
    A2: Feature Eng. Agent reads poisoned CSV  --> drift/label-flip payload
@@ -93,15 +133,18 @@ Attack surfaces (red):
 - [x] Google Cloud project with Vertex AI / Gemini API enabled
 - [x] Devpost registration for the hackathon
 - [x] GitHub repo for submission (public)
+- [ ] Google Cloud credits ($100) claimed and visible in Billing → Credits
+- [ ] Budget alert configured in GCP Console ($0 hard limit)
 
 ### Local toolchain
 - Python 3.11+, `uv` or `poetry`
 - `gcloud` CLI authenticated
 - Node.js 20+ (for any MCP tooling)
 - Docker (for reproducible workspace + optional sandboxing)
+- **Google AntiGravity** (permitted AI dev tool)
 
 ### Python packages (initial)
-- **Agents:** `google-adk` (Agent Development Kit) **or** `langgraph` — pick one in Day 1
+- **Agents:** `google-adk` (Agent Development Kit) — **mandatory per hackathon rules**
 - **MCP client:** `mcp` (official Python SDK)
 - **Observability:** `opentelemetry-sdk`, `opentelemetry-exporter-otlp`, `opentelemetry-instrumentation-requests`
 - **DS stack:** `pandas`, `duckdb`, `scikit-learn`, `optuna`
@@ -114,94 +157,124 @@ Attack surfaces (red):
 
 ### What we're explicitly NOT building
 - Real authentication / multi-tenant workspace
-- A polished UI — a CLI + a single Dynatrace dashboard is enough
+- A polished UI — a CLI + a single Dynatrace dashboard is enough (but project URL must work without login for judges)
 - Production-grade sandboxing of agent tool execution
 
 ---
 
-## 5. Topics to study (front-load Days 1–3)
+## 5. Official Resources (from hackathon Resources page)
+
+### Phase 1: Core Frameworks & Environment
+- [Gemini Enterprise Agent Platform API Setup](https://console.cloud.google.com/) — mission control for all GCP agent projects
+- [Agent Builder Guide](https://cloud.google.com/products/agent-builder) — low-code path with managed orchestration, grounding, data stores
+- [Gemini Enterprise Agent Platform SDK for Python](https://cloud.google.com/python/docs/reference/aiplatform/latest) — client library for custom agent logic and tool calls
+- [Agent Starter Pack](https://github.com/GoogleCloudPlatform/agent-starter-pack)
+- GCP access: [Free trial](https://cloud.google.com/free) or [request $100 credits](https://forms.gle/xfv9vQzfRfNCCVbG7) (limited, first-come-first-served)
+
+### Phase 2: Action Mechanisms & Data Connectivity
+- [Building & Managing Extensions](https://cloud.google.com/vertex-ai/docs/generative-ai/extensions/overview) — pre-built Google extensions or connect to external APIs
+- [Agent Search and Agent Conversation Overview](https://cloud.google.com/vertex-ai/docs/generative-ai/agent-builder/overview) — index PDFs, websites, BigQuery tables for grounding
+
+### Phase 3: Partner Integration (Dynatrace)
+- [Dynatrace resources page](https://rapid-agent.devpost.com/details/dynatrace-resources) — partner-specific setup and MCP server details
+
+### Phase 4: Reasoning, State & Logic Hosting
+- [Agent Runtime](https://cloud.google.com/vertex-ai/docs/generative-ai/reasoning-engine/overview) — runtime for deploying Python-based agents
+- [Secret Manager](https://cloud.google.com/secret-manager) — securely store API keys for partner integrations
+
+### Phase 5: Deployment & Safety
+- [Cloud Run Quickstart](https://cloud.google.com/run/docs/quickstarts) — hosting agent backends or custom tool servers
+- [Gemini Enterprise Agent Platform Safety Settings](https://cloud.google.com/vertex-ai/docs/generative-ai/learn/responsible-ai) — configure guardrails
+
+---
+
+## 6. Topics to study (front-load Days 1–3)
 
 ### Must-read / must-watch
-1. **Dynatrace AI Observability** — how OTel traces from LLM apps surface in Dynatrace; the "AI & LLM Observability" docs.
-2. **Dynatrace MCP server** — available tools, auth model, response shapes. Spend an hour calling each tool from a notebook before designing the Sentinel Agent.
-3. **Davis AI problem detection** — how baselines form, how to seed custom events, how problem IDs map to entities.
-4. **Google ADK (Agent Development Kit)** quickstart + multi-agent example. Compare against LangGraph if ADK feels heavy.
+1. **Google ADK (Agent Development Kit)** quickstart + multi-agent example — **this is our mandatory orchestrator**. No fallback to LangGraph.
+2. **Dynatrace AI Observability** — how OTel traces from LLM apps surface in Dynatrace; the "AI & LLM Observability" docs.
+3. **Dynatrace MCP server** — available tools, auth model, response shapes. Spend an hour calling each tool from a notebook before designing the Sentinel Agent.
+4. **Davis AI problem detection** — how baselines form, how to seed custom events, how problem IDs map to entities.
 5. **OpenLLMetry / Traceloop** — drops in OTel instrumentation for LLM + tool calls with one line; saves a day of work.
+6. **Agent Builder UI (Studio)** — understand the visual path; even if we go code-first with ADK, knowing the console helps debugging.
 
 ### Threat-modelling references
 - OWASP Top 10 for LLM Applications (2025) — especially LLM01 (prompt injection) and LLM03 (training data poisoning)
 - MITRE ATLAS — tactics for ML systems
 - Simon Willison's writeups on indirect prompt injection (concrete payload examples)
 
-### Decisions to lock by end of Day 2
-- ADK vs LangGraph
-- Gemini model tier (Flash for cost during dev, Pro for demo)
-- One LLM trace exporter (OpenLLMetry vs hand-rolled)
-- Where the Sentinel Agent runs (in-process supervisor vs separate process)
+### Decisions now locked (per FAQ rules)
+- ~~ADK vs LangGraph~~ → **ADK is mandatory** (LangGraph cannot be primary orchestrator)
+- Gemini model tier: Flash for cost during dev, Pro for demo
+- LLM trace exporter: OpenLLMetry (try first) vs hand-rolled
+- Sentinel Agent runs as in-process supervisor via ADK multi-agent orchestration
+- **AI coding assistant: Google AntiGravity only** (Claude, Cursor, Copilot not permitted)
 
 ---
 
-## 6. Day-by-day breakdown
+## 7. Day-by-day breakdown
 
-17 days, treated as **3 phases**: Foundation (1–6), Attack & Defense (7–12), Polish & Submit (13–17). Each day lists *outcome* — what exists at end of day — not hours.
+~16 days remaining, treated as **3 phases**: Foundation (Days 1–6), Attack & Defense (7–12), Polish & Submit (13–17). Each day lists *outcome* — what exists at end of day — not hours.
 
 ### Phase 1 — Foundation (Days 1–6)
 
 | Day | Date | Outcome |
 |-----|------|---------|
-| 1 | Mon May 25 | Repo scaffolded; ADK vs LangGraph chosen; `uv` env; Gemini "hello world" runs; Dynatrace OTLP token validated by sending one manual span. |
-| 2 | Tue May 26 | Research Agent v0 — single agent, web fetch tool, returns a summary. Spans appear in Dynatrace. OpenLLMetry wired. |
-| 3 | Wed May 27 | Feature Eng. Agent v0 + Modelling Agent v0 (skeletons). Orchestrator routes a request across all three. End-to-end trace visible in Dynatrace. |
-| 4 | Thu May 28 | Dynatrace MCP client wired. Sentinel Agent v0 can call `list_problems`, `execute_dql` and print results. |
-| 5 | Fri May 29 | Sentinel Agent integrated as pre-flight check — every tool call routed through it. Default policy: ALLOW. |
-| 6 | Sat May 30 | **Milestone M1: Happy path works end-to-end and is fully observable.** A user request flows through 3 agents, Sentinel pre-checks each tool call, full trace visible in Dynatrace. No attacks yet. |
+| 1 | Mon May 26 | Repo scaffolded; ADK confirmed as orchestrator (per rules); `uv` env; Gemini "hello world" runs via ADK; Dynatrace OTLP token validated by sending one manual span. GCP credits claimed + budget alert set. |
+| 2 | Tue May 27 | Research Agent v0 — single ADK agent, web fetch tool, returns a summary. Spans appear in Dynatrace. OpenLLMetry wired. |
+| 3 | Wed May 28 | Feature Eng. Agent v0 + Modelling Agent v0 (skeletons). ADK orchestrator routes a request across all three. End-to-end trace visible in Dynatrace. |
+| 4 | Thu May 29 | Dynatrace MCP client wired. Sentinel Agent v0 can call `list_problems`, `execute_dql` and print results. |
+| 5 | Fri May 30 | Sentinel Agent integrated as pre-flight check — every tool call routed through it. Default policy: ALLOW. |
+| 6 | Sat May 31 | **Milestone M1: Happy path works end-to-end and is fully observable.** A user request flows through 3 agents, Sentinel pre-checks each tool call, full trace visible in Dynatrace. No attacks yet. |
 
 ### Phase 2 — Attack & Defense (Days 7–12)
 
 | Day | Date | Outcome |
 |-----|------|---------|
-| 7 | Sun May 31 | **A1 attack staged** — a local "malicious" webpage with embedded prompt injection; Research Agent visibly compromised (tries to call exfil tool). |
-| 8 | Mon Jun 1 | A1 detection — emit a custom Dynatrace event when LLM input matches injection heuristics; Davis AI raises a problem. Verify problem appears via MCP. |
-| 9 | Tue Jun 2 | A1 defense — Sentinel queries problems pre-flight, returns HALT, orchestrator quarantines the agent. End-to-end attack→detection→halt demo works. |
-| 10 | Wed Jun 3 | **A2 attack staged** — poisoned CSV with label flips; Feature Eng. Agent ingests it; downstream model accuracy drops. |
-| 11 | Thu Jun 4 | A2 detection + defense — emit dataset-stats metrics; Davis AI flags drift; Sentinel halts modelling step. |
-| 12 | Fri Jun 5 | **Milestone M2: Both attack scenarios run end-to-end with detection and response.** Lock the demo script. |
+| 7 | Sun Jun 1 | **A1 attack staged** — a local "malicious" webpage with embedded prompt injection; Research Agent visibly compromised (tries to call exfil tool). |
+| 8 | Mon Jun 2 | A1 detection — emit a custom Dynatrace event when LLM input matches injection heuristics; Davis AI raises a problem. Verify problem appears via MCP. |
+| 9 | Tue Jun 3 | A1 defense — Sentinel queries problems pre-flight, returns HALT, orchestrator quarantines the agent. End-to-end attack→detection→halt demo works. |
+| 10 | Wed Jun 4 | **A2 attack staged** — poisoned CSV with label flips; Feature Eng. Agent ingests it; downstream model accuracy drops. |
+| 11 | Thu Jun 5 | A2 detection + defense — emit dataset-stats metrics; Davis AI flags drift; Sentinel halts modelling step. |
+| 12 | Fri Jun 6 | **Milestone M2: Both attack scenarios run end-to-end with detection and response.** Lock the demo script. |
 
 ### Phase 3 — Polish & Submit (Days 13–17)
 
 | Day | Date | Outcome |
 |-----|------|---------|
-| 13 | Sat Jun 6 | Dynatrace dashboard built: workspace overview, agent activity, problem timeline. One-click "show the demo" view. |
-| 14 | Sun Jun 7 | Demo script rehearsed; CLI UX cleaned up; README v1 written. |
-| 15 | Mon Jun 8 | **Milestone M3: Demo video recorded** (3 min, both attacks, narrated). Re-record if rough. |
-| 16 | Tue Jun 9 | Buffer day — fix anything embarrassing; tighten README; architecture diagram exported as image. |
-| 17 | Wed Jun 10 | Final submission package: repo, video, devpost write-up, architecture diagram. **Submit at least 24h before deadline.** |
-| — | Thu Jun 11 | Hard deadline. Do not touch the repo today. |
+| 13 | Sat Jun 7 | Dynatrace dashboard built: workspace overview, agent activity, problem timeline. No-login sandbox demo URL for judges. |
+| 14 | Sun Jun 8 | Demo script rehearsed; CLI UX cleaned up; README v1 written. Ensure project URL works without login. |
+| 15 | Mon Jun 9 | **Milestone M3: Demo video recorded** (3 min, both attacks, narrated). Re-record if rough. |
+| 16 | Tue Jun 10 | Buffer day — fix anything embarrassing; tighten README; architecture diagram exported as image. |
+| 17 | Wed Jun 11 | Final submission package: repo, video, devpost write-up, architecture diagram. **Submit at least 4h before deadline (2:00 PM PDT).** |
 
 ### Milestones summary
 
-- **M1 (Sat May 30):** observable happy path
-- **M2 (Fri Jun 5):** both attacks demoed end-to-end
-- **M3 (Mon Jun 8):** demo video in the can
-- **Submission:** Wed Jun 10 (one day buffer before the Jun 11 deadline)
+- **M1 (Sat May 31):** observable happy path
+- **M2 (Fri Jun 6):** both attacks demoed end-to-end
+- **M3 (Mon Jun 9):** demo video in the can
+- **Submission:** Wed Jun 11 (submit by morning, deadline is 2:00 PM PDT)
 
-If M1 slips past May 31, drop A2 and demo A1 only. If M2 slips past June 7, skip the dashboard polish. **Do not compromise on M3** — a hackathon submission without a working video underperforms a working video with rougher code.
+If M1 slips past Jun 1, drop A2 and demo A1 only. If M2 slips past Jun 8, skip the dashboard polish. **Do not compromise on M3** — a hackathon submission without a working video underperforms a working video with rougher code.
 
 ---
 
-## 7. Risks & mitigations
+## 8. Risks & mitigations
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
+| ADK's multi-agent orchestration has rough edges | Medium | No fallback to LangGraph (rules prohibit it). Mitigate by reading every ADK example + Agent Starter Pack. If multi-agent is too unstable, use sequential single-agent calls orchestrated by a thin ADK wrapper. |
 | Dynatrace MCP tools don't expose what we need (e.g., no per-entity problem feed) | Medium | Day 1 spike: call every MCP tool, document responses. Fall back to direct Dynatrace API if MCP is thin. |
-| ADK's multi-agent orchestration has rough edges | Medium | Have LangGraph as a backup; both can wrap the same tools. |
 | Davis AI doesn't auto-detect our staged anomalies in time for demo | High | Don't rely on auto-detection alone — emit explicit custom events; Davis correlates them into problems quickly. |
 | Demo flakes live (network, rate limits) | High | Record the video against a stable replay; never demo live for the submission. |
 | Scope creep into "real" sandboxing or auth | High | This plan explicitly excludes them; revisit only post-M2. |
+| Accidentally using non-permitted AI tools during dev | Medium | Remove Claude/Cursor/Copilot from IDE. Use only AntiGravity for AI-assisted coding. |
+| GCP credits run out before submission | Medium | Set hard budget alert. Use Gemini Flash during dev, Pro only for final demo. Clean up Cloud Run daily. |
+| Project URL not accessible to judges | Medium | Build a no-login sandbox demo with preloaded sample data. Test access from an incognito browser. |
 
 ---
 
-## 8. Full threat list (for the writeup, not the demo)
+## 9. Full threat list (for the writeup, not the demo)
 
 For completeness in the submission narrative — we'll mention these as future work:
 
@@ -215,9 +288,11 @@ For completeness in the submission narrative — we'll mention these as future w
 
 ---
 
-## 9. Open questions to resolve in Day 1
+## 10. Open questions to resolve in Day 1
 
-- ADK or LangGraph? (Bias: ADK, since it's the hackathon partner stack.)
+- ~~ADK or LangGraph?~~ → **ADK (mandatory per rules)**
 - Where does the Sentinel Agent's policy live — code, or a Dynatrace-managed config?
 - For the demo, do we replay a recorded trace or run live? (Bias: live for M2, recorded for the video.)
-- Single-machine demo or split across a Cloud Run service + local CLI?
+- Single-machine demo or deploy to Cloud Run? (Bias: Cloud Run for the final submission, local for dev.)
+- How to build the no-login sandbox demo URL for judges?
+- What synthetic telemetry data to use for the Dynatrace track demo?
