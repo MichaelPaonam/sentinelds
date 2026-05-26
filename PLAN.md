@@ -46,13 +46,57 @@
 
 ## 1. Premise
 
-A data-scientist workspace orchestrated by three specialist agents:
+### The story: from "as-is" to "to-be"
 
-- **Research Agent** — surveys papers, blog posts, docs to summarize a problem space.
-- **Data + Feature Engineering Agent** — pulls datasets, profiles them, builds features.
-- **Modelling Agent** — selects models, runs hyperparameter tuning, reports metrics.
+A team of data scientists is building a **Truck Driver Drowsiness Detection** system to prevent road accidents. Today, they work in a conventional, manual workflow — Jupyter notebooks, shared CSV files, ad-hoc model training. This is the **"as-is" process**: effective but slow, unobservable, and vulnerable.
+
+**SentinelDS** is the **"to-be" process** — the same drowsiness-detection mission, but now orchestrated by three specialist AI agents:
+
+- **Research Agent** — surveys papers, blog posts, docs to summarize the drowsiness-detection problem space (e.g., EEG vs. camera-based approaches, fatigue biomarkers, regulatory standards).
+- **Data + Feature Engineering Agent** — pulls drowsiness datasets (driver video frames, sensor readings), profiles them, builds features (eye-aspect ratio, yawn frequency, head-pose angles).
+- **Modelling Agent** — selects models (CNN, LSTM, ensemble classifiers), runs hyperparameter tuning, reports metrics (accuracy, false-negative rate — critical for safety).
 
 These agents are useful precisely because they have tools (web fetch, file/dataset access, code execution, model registries). That same surface is what attackers target. We use Dynatrace as the workspace's **immune system**: it observes every agent action, Davis AI flags anomalies, and a **Sentinel Agent** queries Dynatrace over MCP before risky actions — closing the loop from detection to response.
+
+The demo narrative: *"Here's how a team works today (as-is). Here's how agents accelerate it (to-be). And here's what happens when those agents get attacked — and how SentinelDS stops it."*
+
+---
+
+### 1.1. Companion Project: "As-Is" Data Science Workspace
+
+> **Repo:** separate repository (e.g., `drowsiness-detection-workspace`)
+> **Purpose:** reference baseline that shows the manual, human-driven DS workflow SentinelDS replaces
+
+This is a **small, self-contained** conventional data-science project. It does NOT use AI agents. It exists to:
+1. Provide a **concrete, relatable problem domain** (truck driver safety) that makes the demo compelling.
+2. Serve as the **source of realistic artifacts** (datasets, notebooks, model files) that the SentinelDS agents will operate on.
+3. Create a **before/after contrast** for the demo video and submission writeup.
+
+#### What the companion repo contains
+
+| Component | Description | Files |
+|-----------|-------------|-------|
+| **Research notes** | Manual literature survey on drowsiness detection methods | `research/notes.md`, `research/papers.bib` |
+| **Dataset** | Small sample dataset — driver face images or sensor readings with drowsy/alert labels | `data/raw/sample_frames.csv` or image folder |
+| **EDA notebook** | Exploratory data analysis — class distribution, feature distributions, missing values | `notebooks/01_eda.ipynb` |
+| **Feature engineering** | Manual feature extraction — eye-aspect ratio, yawn count, head-pose angles | `notebooks/02_features.ipynb`, `src/features.py` |
+| **Model training** | Baseline model (e.g., Random Forest or simple CNN) with train/eval split | `notebooks/03_model.ipynb`, `src/train.py` |
+| **Results** | Metrics, confusion matrix, a brief report | `results/metrics.json`, `results/report.md` |
+
+#### What it deliberately lacks (the "as-is" gaps SentinelDS fills)
+
+- ❌ **No observability** — no tracing, no telemetry, no audit trail of who ran what when
+- ❌ **No anomaly detection** — a poisoned CSV goes unnoticed; a malicious URL in research notes gets fetched blindly
+- ❌ **No automated pipeline** — every step is manual notebook execution
+- ❌ **No security guardrails** — no pre-flight checks on data sources, no egress monitoring
+
+#### Scope guard
+
+This is a **throwaway reference project**, not a production ML system. Keep it minimal:
+- Use a small public dataset (e.g., [UTA-RLDD](https://www.kaggle.com/datasets) or [Driver Drowsiness Dataset](https://www.kaggle.com/datasets/ismailnasri20/driver-drowsiness-dataset-ddd) on Kaggle, or synthetic data)
+- The model does NOT need to be good — it just needs to be plausible
+- Total effort: **~2–3 hours** to scaffold, tops
+- The companion repo is NOT submitted to the hackathon — it's supporting material referenced in the SentinelDS demo
 
 ---
 
@@ -220,7 +264,7 @@ Attack surfaces (red):
 
 | Day | Date | Outcome |
 |-----|------|---------|
-| 1 | Mon May 26 | Repo scaffolded; ADK confirmed as orchestrator (per rules); `uv` env; Gemini "hello world" runs via ADK; Dynatrace OTLP token validated by sending one manual span. GCP credits claimed + budget alert set. |
+| 1 | Mon May 26 | **Companion repo** (`drowsiness-detection-workspace`) scaffolded with sample dataset, EDA notebook, and baseline model. SentinelDS repo scaffolded; ADK confirmed as orchestrator (per rules); `uv` env; Gemini "hello world" runs via ADK; Dynatrace OTLP token validated by sending one manual span. GCP credits claimed + budget alert set. |
 | 2 | Tue May 27 | Research Agent v0 — single ADK agent, web fetch tool, returns a summary. Spans appear in Dynatrace. OpenLLMetry wired. |
 | 3 | Wed May 28 | Feature Eng. Agent v0 + Modelling Agent v0 (skeletons). ADK orchestrator routes a request across all three. End-to-end trace visible in Dynatrace. |
 | 4 | Thu May 29 | Dynatrace MCP client wired. Sentinel Agent v0 can call `list_problems`, `execute_dql` and print results. |
