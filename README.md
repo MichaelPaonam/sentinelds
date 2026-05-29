@@ -22,6 +22,34 @@ Five other threats are catalogued in `PLAN.md` §8 as future work.
 - `PLAN.md` — full technical plan: threat model, architecture diagram, prerequisites, day-by-day schedule, milestones.
 - *(code lands as the schedule progresses)*
 
+## Setup & Development
+
+We use `uv` for fast Python package and environment management. Ensure you have [uv](https://github.com/astral-sh/uv) installed.
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repo-url>
+   cd sentinelds
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   uv venv
+   ```
+
+3. **Activate the environment:**
+   ```bash
+   # Windows
+   .venv\Scripts\activate
+   # macOS/Linux
+   source .venv/bin/activate
+   ```
+
+4. **Sync dependencies:**
+   ```bash
+   uv sync
+   ```
+
 ## Status
 
 Pre-implementation. Plan locked, scaffolding starts on Day 1 of the schedule in `PLAN.md` §6.
