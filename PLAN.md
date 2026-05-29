@@ -177,7 +177,7 @@ Attack surfaces (red):
 - [x] Google Cloud project with Vertex AI / Gemini API enabled
 - [x] Devpost registration for the hackathon
 - [x] GitHub repo for submission (public)
-- [ ] Google Cloud credits ($100) claimed and visible in Billing → Credits
+- [x] Google Cloud credits ($100) claimed and visible in Billing → Credits
 - [ ] Budget alert configured in GCP Console ($0 hard limit)
 
 ### Local toolchain
