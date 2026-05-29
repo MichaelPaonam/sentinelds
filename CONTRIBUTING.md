@@ -1,4 +1,4 @@
-# Contributing to Drowsiness Detection
+# Contributing to SentinelDS
 
 Thank you for contributing.
 
