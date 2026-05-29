@@ -1,5 +1,5 @@
 # Environment variable loading
-python-dotenv>=1.0
+python-dotenv>=1.2.2
 
 # Testing
 pytest>=8.0
