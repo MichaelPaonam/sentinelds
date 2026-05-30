@@ -2471,6 +2471,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "google-adk" },
+    { name = "google-genai" },
     { name = "mcp" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-sdk" },
@@ -2488,6 +2489,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "google-adk", specifier = ">=1.0" },
+    { name = "google-genai", specifier = ">=1.75.0" },
     { name = "mcp", specifier = ">=1.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.0" },
