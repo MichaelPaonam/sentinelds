@@ -320,14 +320,14 @@ The day-level breakdown below is the **original chronological reference**. The b
 | README v1 (#38) — pitch, architecture, two-attack walkthrough, doc links. |
 | **M3 (target Mon Jun 9):** demo video recorded (#39) — ≤3 min, narrated, against stable replay (never live). |
 | Buffer (#40) — fix anything embarrassing; tighten README; export architecture diagram. |
-| **Submission (#41):** target Jun 11 evening; **hard deadline Jun 11 23:55** in local time. |
+| **Submission (#41):** target Jun 11 morning; **hard deadline Jun 11 12:00 PDT**. |
 
 ### Milestones summary
 
 - **M1** — observable happy path *(Phase 1 closes)*
 - **M2** — both attacks demoed end-to-end *(Phase 2 closes)*
 - **M3** — demo video in the can *(Phase 3 mid-point)*
-- **Submission** — Jun 11 23:55 hard deadline; aim for Jun 11 evening
+- **Submission** — Jun 11 12:00 PDT hard deadline; aim to submit on Jun 10 (one day buffer)
 
 ### Slip rules
 
