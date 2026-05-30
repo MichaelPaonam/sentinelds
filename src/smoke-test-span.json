@@ -1,0 +1,45 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": { "stringValue": "bruno-smoke-tester" }
+          },
+          {
+            "key": "environment",
+            "value": { "stringValue": "smoke-test" }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "bruno-client",
+            "version": "1.0.0"
+          },
+          "spans": [
+            {
+              "traceId": "5bf92f3577b34da6a3ce929d0e0e4737",
+              "spanId": "11f067aa0ba902b8",
+              "name": "ExecuteBrunoSmokeTest",
+              "kind": 1,
+              "startTimeUnixNano": "1780137600000000000",
+              "endTimeUnixNano": "1780137602000000000",
+              "attributes": [
+                {
+                  "key": "test.origin",
+                  "value": { "stringValue": "bruno-client-ui" }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
