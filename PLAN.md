@@ -3,9 +3,17 @@
 **Project:** Securing an agentic data-science workspace with Dynatrace
 **Hackathon:** Google Cloud Rapid Agent Hackathon ([devpost](https://rapid-agent.devpost.com))
 **Partner:** Dynatrace (via MCP)
-**Submission deadline:** 2026-06-11 (2:00 PM PDT)
-**Plan written:** 2026-05-25 | **Updated:** 2026-05-26
-**Days remaining:** ~16
+**Submission deadline:** 2026-06-11 12:00 PDT
+**Plan written:** 2026-05-25 | **Updated:** 2026-05-31
+
+## Companion documents
+
+This plan is the contract for *what* and *when*. The threat-model framing and step-by-step attack walkthroughs live in:
+
+- [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) — SANS AISMM pillars/stages, MITRE ATLAS mapping, RAI-AgentSec controls, the four-phase defense loop, trust boundaries
+- [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md) — A1 and A2 demo walkthroughs (setup → attack → telemetry → detection → Sentinel decision → enforcement → negative tests)
+
+The board at https://github.com/users/MichaelPaonam/projects/1 is reorganized around three **Phase Epics** that close M1 / M2 / M3+Submission. The day-by-day in §7 below is the original chronological breakdown — it stays as a reference, but **the board is the source of truth for execution**.
 
 ---
 
@@ -21,7 +29,7 @@
 3. **Integrate at least one partner MCP server** — we use **Dynatrace MCP**.
 
 ### What's restricted
-- **LangChain, LangGraph, LlamaIndex cannot be your primary orchestrator.** Agent Builder / ADK must be the orchestrator. *(This settles our Day 1 decision — ADK is the only choice.)*
+- **LangChain, LangGraph, LlamaIndex cannot be your primary orchestrator.** Agent Builder / ADK must be the orchestrator. *(This settled the framework decision early — ADK is the only choice.)*
 - **AI coding tools:** Only Google Cloud AI tools (Gemini, Agent Builder) and partner AI features are permitted. Claude, Cursor, GitHub Copilot are **NOT permitted** — not even for development workflow. **Google AntiGravity is permitted.**
 - **Existing code:** Project must be newly created from scratch during contest period (May 5 – Jun 11, 2026). Reusing old codebases is not allowed; new iteration of an old idea is fine.
 
@@ -102,6 +110,8 @@ This is a **throwaway reference project**, not a production ML system. Keep it m
 
 ## 2. Threat model (scoped for demo)
 
+> **For the full threat-model treatment** (SANS AISMM pillars/stages, MITRE ATLAS mapping, Confused Deputy framing, trust boundaries, the EMIT→DETECT→DECIDE→ENFORCE defense loop) see [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md). For the **step-by-step attack walkthroughs** see [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md). This section is the short version.
+
 We threat-modelled five realistic attacks (full list at the bottom of this doc). For the hackathon we demo **two**, end-to-end:
 
 | # | Attack | Target agent | Why it's the right demo |
@@ -110,6 +120,15 @@ We threat-modelled five realistic attacks (full list at the bottom of this doc).
 | **A2** | **Data poisoning** — crafted rows in an ingested CSV (label flips + a trigger pattern) skew the trained model. | Feature Engineering Agent | Classic ML attack; defended by data-drift / statistical anomaly signals from Dynatrace. |
 
 The "wow" moment: the **Sentinel Agent** notices Davis AI has flagged the workspace, queries Dynatrace via MCP, and **halts the next tool call** before damage spreads.
+
+### Why these attacks succeed against a hardened LLM
+
+The two attacks **do not exploit weaknesses in Gemini's safety tuning**. They exploit the agent architecture:
+
+- **A1** works because the Research Agent is *instructed* to fetch web pages and incorporate their content. Frontier models still fall to *indirect* prompt injection at meaningful rates because the malicious instruction arrives as content the agent was told to trust. Don't use a crude `IGNORE PREVIOUS INSTRUCTIONS` payload — modern Gemini will refuse it. Use a realistic indirect injection (e.g., a fake "editor's note" framing the malicious action as IRB-mandated workflow). See [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md) §A1.1 and issue #25 for the payload pattern.
+- **A2** never touches the LLM — the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
+
+This is the **point** of SentinelDS, and the demo narration should say it explicitly: *"Model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow, not the model's alignment. SentinelDS defends at the architectural layer where the actual exposure lives."* This matches the SANS AISMM Stage 4 *Confused Deputy* framing in the threat-model doc.
 
 ---
 
@@ -181,18 +200,19 @@ Attack surfaces (red):
 - [ ] Budget alert configured in GCP Console ($0 hard limit)
 
 ### Local toolchain
-- Python 3.11+, `uv` or `poetry`
+- Python **3.12+**, `uv`
 - `gcloud` CLI authenticated
 - Node.js 20+ (for any MCP tooling)
 - Docker (for reproducible workspace + optional sandboxing)
 - **Google AntiGravity** (permitted AI dev tool)
 
-### Python packages (initial)
-- **Agents:** `google-adk` (Agent Development Kit) — **mandatory per hackathon rules**
-- **MCP client:** `mcp` (official Python SDK)
-- **Observability:** `opentelemetry-sdk`, `opentelemetry-exporter-otlp`, `opentelemetry-instrumentation-requests`
-- **DS stack:** `pandas`, `duckdb`, `scikit-learn`, `optuna`
-- **LLM tracing:** `openllmetry` (Traceloop) — gives free LLM/tool spans
+### Python packages (locked in `pyproject.toml`)
+- **Agents:** `google-adk`, `google-genai`
+- **MCP client:** `mcp`
+- **Observability:** `opentelemetry-api`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`
+- **LLM tracing:** `traceloop-sdk` (OpenLLMetry) — auto-instruments Gemini calls
+- **DS stack:** `pandas`, `scikit-learn`
+- **Env:** `python-dotenv`
 
 ### Dynatrace setup
 - OTLP ingest endpoint + API token with `openTelemetryTrace.ingest`, `metrics.ingest`, `logs.ingest`
@@ -232,7 +252,7 @@ Attack surfaces (red):
 
 ---
 
-## 6. Topics to study (front-load Days 1–3)
+## 6. Topics to study (front-loaded in Phase 1)
 
 ### Must-read / must-watch
 1. **Google ADK (Agent Development Kit)** quickstart + multi-agent example — **this is our mandatory orchestrator**. No fallback to LangGraph.
@@ -256,50 +276,64 @@ Attack surfaces (red):
 
 ---
 
-## 7. Day-by-day breakdown
+## 7. Schedule — three phases
 
-~16 days remaining, treated as **3 phases**: Foundation (Days 1–6), Attack & Defense (7–12), Polish & Submit (13–17). Each day lists *outcome* — what exists at end of day — not hours.
+The plan is structured as **3 phases**, each closing one milestone: Foundation (closes M1), Attack & Defense (closes M2), Polish & Submit (closes M3 → Submission). Each phase is one **Epic** on the GitHub project board with sub-issues for concrete work.
 
-### Phase 1 — Foundation (Days 1–6)
+> **Board source-of-truth:** https://github.com/users/MichaelPaonam/projects/1
+> Epics: [#17 Phase 1](https://github.com/MichaelPaonam/sentinelds/issues/17) · [#18 Phase 2](https://github.com/MichaelPaonam/sentinelds/issues/18) · [#19 Phase 3](https://github.com/MichaelPaonam/sentinelds/issues/19)
 
-| Day | Date | Outcome |
-|-----|------|---------|
-| 1 | Mon May 26 | **Companion repo** (`drowsiness-detection-workspace`) scaffolded with sample dataset, EDA notebook, and baseline model. SentinelDS repo scaffolded; ADK confirmed as orchestrator (per rules); `uv` env; Gemini "hello world" runs via ADK; Dynatrace OTLP token validated by sending one manual span. GCP credits claimed + budget alert set. |
-| 2 | Tue May 27 | Research Agent v0 — single ADK agent, web fetch tool, returns a summary. Spans appear in Dynatrace. OpenLLMetry wired. |
-| 3 | Wed May 28 | Feature Eng. Agent v0 + Modelling Agent v0 (skeletons). ADK orchestrator routes a request across all three. End-to-end trace visible in Dynatrace. |
-| 4 | Thu May 29 | Dynatrace MCP client wired. Sentinel Agent v0 can call `list_problems`, `execute_dql` and print results. |
-| 5 | Fri May 30 | Sentinel Agent integrated as pre-flight check — every tool call routed through it. Default policy: ALLOW. |
-| 6 | Sat May 31 | **Milestone M1: Happy path works end-to-end and is fully observable.** A user request flows through 3 agents, Sentinel pre-checks each tool call, full trace visible in Dynatrace. No attacks yet. |
+The day-level breakdown below is the **original chronological reference**. The board is what tracks execution; the schedule slides if a sub-issue takes longer than its day. Use this section to remember *what* belongs in each phase, not to commit to specific dates.
 
-### Phase 2 — Attack & Defense (Days 7–12)
+### Phase 1 — Foundation (closes M1, target Sat May 31) — Epic #17
 
-| Day | Date | Outcome |
-|-----|------|---------|
-| 7 | Sun Jun 1 | **A1 attack staged** — a local "malicious" webpage with embedded prompt injection; Research Agent visibly compromised (tries to call exfil tool). |
-| 8 | Mon Jun 2 | A1 detection — emit a custom Dynatrace event when LLM input matches injection heuristics; Davis AI raises a problem. Verify problem appears via MCP. |
-| 9 | Tue Jun 3 | A1 defense — Sentinel queries problems pre-flight, returns HALT, orchestrator quarantines the agent. End-to-end attack→detection→halt demo works. |
-| 10 | Wed Jun 4 | **A2 attack staged** — poisoned CSV with label flips; Feature Eng. Agent ingests it; downstream model accuracy drops. |
-| 11 | Thu Jun 5 | A2 detection + defense — emit dataset-stats metrics; Davis AI flags drift; Sentinel halts modelling step. |
-| 12 | Fri Jun 6 | **Milestone M2: Both attack scenarios run end-to-end with detection and response.** Lock the demo script. |
+| Outcome |
+|---------|
+| **Companion repo** (`drowsiness-detection-workspace`) scaffolded with sample dataset, EDA notebook, and baseline model. SentinelDS repo scaffolded; ADK confirmed as orchestrator (per rules); `uv` env; Gemini "hello world" runs via ADK; Dynatrace OTLP token validated by sending one manual span. GCP credits claimed + budget alert set. ✅ Done |
+| Research Agent v0 (#7) — single ADK agent, web fetch tool with A1-ready span attributes, returns a summary. Spans appear in Dynatrace. OpenLLMetry wired. |
+| Feature Eng. Agent v0 + Modelling Agent v0 skeletons + OTel attributes (#22). ADK orchestrator routes a request across all three. End-to-end trace visible in Dynatrace. |
+| Dynatrace MCP client wired (#23). Sentinel Agent v0 can call `list_problems`, `execute_dql` and parse responses. |
+| Sentinel pre-flight integrated (#24) — deterministic rule, fail-closed if MCP unreachable, default policy ALLOW. |
+| **M1: Happy path works end-to-end and is fully observable.** A user request flows through 3 agents, Sentinel pre-checks each tool call, full trace visible in Dynatrace. No attacks yet. |
 
-### Phase 3 — Polish & Submit (Days 13–17)
+### Phase 2 — Attack & Defense (closes M2, target Fri Jun 6) — Epic #18
 
-| Day | Date | Outcome |
-|-----|------|---------|
-| 13 | Sat Jun 7 | Dynatrace dashboard built: workspace overview, agent activity, problem timeline. No-login sandbox demo URL for judges. |
-| 14 | Sun Jun 8 | Demo script rehearsed; CLI UX cleaned up; README v1 written. Ensure project URL works without login. |
-| 15 | Mon Jun 9 | **Milestone M3: Demo video recorded** (3 min, both attacks, narrated). Re-record if rough. |
-| 16 | Tue Jun 10 | Buffer day — fix anything embarrassing; tighten README; architecture diagram exported as image. |
-| 17 | Wed Jun 11 | Final submission package: repo, video, devpost write-up, architecture diagram. **Submit at least 4h before deadline (2:00 PM PDT).** |
+| Outcome |
+|---------|
+| **A1 staged** (#25) — local malicious page with a *realistic* indirect injection (editor's-note framing, not crude `IGNORE PREVIOUS`). Research Agent visibly compromised. |
+| A1 detection (#26 + #27) — content-shape signature heuristic, custom `sentinelds.injection.candidate` event, Davis Problem visible via MCP. |
+| A1 defense (#28 + #29) — Sentinel HALT, orchestrator quarantines the agent session, audit-log line written. |
+| A1 negative tests (#30) — rewording, multi-step, social-engineering Sentinel; all still HALT. |
+| **A2 baseline seeding** (#31) — ≥5 clean ingests so Davis has a baseline before poisoning. |
+| A2 staged (#32) — `clean.csv` and `poisoned.csv` (10–20% label flips + trigger pattern). |
+| A2 detection (#33) — `dataset.stats.*` metrics, drift threshold rule, `sentinelds.dataset.drift_candidate` event. |
+| A2 defense (#34) — Sentinel HALT at `model.train` boundary, dataset SHA-256 quarantined. |
+| A2 negative tests (#35) — small fraction, gradual drift, clean-stats-poisoned-semantics (last is documented as future work). |
+| **M2: Both attack scenarios run end-to-end with detection and response.** Lock the demo script. |
+
+### Phase 3 — Polish & Submit (closes M3 → Submission) — Epic #19
+
+| Outcome |
+|---------|
+| Dynatrace dashboard (#36) — workspace overview, problem timeline, Sentinel decision log, dataset-stats drift; no-login sandbox URL for judges. |
+| Demo script rehearsed (#37) against the 7-scene outline in `docs/agents-exploit-scenarios.md` §5. |
+| README v1 (#38) — pitch, architecture, two-attack walkthrough, doc links. |
+| **M3 (target Mon Jun 9):** demo video recorded (#39) — ≤3 min, narrated, against stable replay (never live). |
+| Buffer (#40) — fix anything embarrassing; tighten README; export architecture diagram. |
+| **Submission (#41):** target Jun 11 evening; **hard deadline Jun 11 23:55** in local time. |
 
 ### Milestones summary
 
-- **M1 (Sat May 31):** observable happy path
-- **M2 (Fri Jun 6):** both attacks demoed end-to-end
-- **M3 (Mon Jun 9):** demo video in the can
-- **Submission:** Wed Jun 11 (submit by morning, deadline is 2:00 PM PDT)
+- **M1** — observable happy path *(Phase 1 closes)*
+- **M2** — both attacks demoed end-to-end *(Phase 2 closes)*
+- **M3** — demo video in the can *(Phase 3 mid-point)*
+- **Submission** — Jun 11 23:55 hard deadline; aim for Jun 11 evening
 
-If M1 slips past Jun 1, drop A2 and demo A1 only. If M2 slips past Jun 8, skip the dashboard polish. **Do not compromise on M3** — a hackathon submission without a working video underperforms a working video with rougher code.
+### Slip rules
+
+- If M1 slips, drop A2 and demo A1 only. A1 alone with a tight defense story beats two rough attacks.
+- If M2 slips, skip the dashboard polish (#36) — narration over a basic Dynatrace view is fine.
+- **Do not compromise on M3.** A working video with rougher code outperforms a polished repo without a video.
 
 ---
 
@@ -308,7 +342,7 @@ If M1 slips past Jun 1, drop A2 and demo A1 only. If M2 slips past Jun 8, skip t
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
 | ADK's multi-agent orchestration has rough edges | Medium | No fallback to LangGraph (rules prohibit it). Mitigate by reading every ADK example + Agent Starter Pack. If multi-agent is too unstable, use sequential single-agent calls orchestrated by a thin ADK wrapper. |
-| Dynatrace MCP tools don't expose what we need (e.g., no per-entity problem feed) | Medium | Day 1 spike: call every MCP tool, document responses. Fall back to direct Dynatrace API if MCP is thin. |
+| Dynatrace MCP tools don't expose what we need (e.g., no per-entity problem feed) | Medium | Phase 1 spike (issue #23): call every MCP tool, document responses. Fall back to direct Dynatrace API if MCP is thin. |
 | Davis AI doesn't auto-detect our staged anomalies in time for demo | High | Don't rely on auto-detection alone — emit explicit custom events; Davis correlates them into problems quickly. |
 | Demo flakes live (network, rate limits) | High | Record the video against a stable replay; never demo live for the submission. |
 | Scope creep into "real" sandboxing or auth | High | This plan explicitly excludes them; revisit only post-M2. |
@@ -332,11 +366,11 @@ For completeness in the submission narrative — we'll mention these as future w
 
 ---
 
-## 10. Open questions to resolve in Day 1
+## 10. Open questions for Phase 1
 
 - ~~ADK or LangGraph?~~ → **ADK (mandatory per rules)**
-- Where does the Sentinel Agent's policy live — code, or a Dynatrace-managed config?
-- For the demo, do we replay a recorded trace or run live? (Bias: live for M2, recorded for the video.)
-- Single-machine demo or deploy to Cloud Run? (Bias: Cloud Run for the final submission, local for dev.)
-- How to build the no-login sandbox demo URL for judges?
-- What synthetic telemetry data to use for the Dynatrace track demo?
+- Where does the Sentinel Agent's policy live — code, or a Dynatrace-managed config? **Dynatrace-managed config**
+- For the demo, do we replay a recorded trace or run live? (Bias: live for M2, recorded for the video.) **For the demo, live run not required**
+- Single-machine demo or deploy to Cloud Run? (Bias: Cloud Run for the final submission, local for dev.) **Cloud Run**
+- How to build the no-login sandbox demo URL for judges? **hosted on GCP**
+- What synthetic telemetry data to use for the Dynatrace track demo? **let's try using faker, to generate data for both normal scenarios and attack scenarios** 
