@@ -9,7 +9,14 @@ description = "An agentic data-science workspace defended by Dynatrace."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "google-adk>=1.0",
+    "mcp>=1.0",
+    "opentelemetry-exporter-otlp>=1.0",
+    "opentelemetry-sdk>=1.0",
+    "pandas>=2.0",
     "python-dotenv>=1.0",
+    "scikit-learn>=1.0",
+    "traceloop-sdk>=0.40",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +27,9 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.uv]
+package = false
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

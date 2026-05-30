@@ -1,8 +1,0 @@
-# Environment variable loading
-python-dotenv>=1.0
-
-# Testing
-pytest>=8.0
-
-# Toolchain
-uv>=0.11.17
