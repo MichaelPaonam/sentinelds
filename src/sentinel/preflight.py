@@ -33,7 +33,8 @@ from mcp import ClientSession
 from src.sentinel.dynatrace_mcp import list_open_problems, run_dql
 
 # Davis severity values that should trip a HALT on the workspace entity.
-# Spec: https://docs.dynatrace.com/docs/observe/problems
+# Severity vocabulary: https://docs.dynatrace.com/docs/observe/problems
+# (Status filter "ACTIVE" — see dynatrace_mcp.list_open_problems.)
 _HALT_SEVERITIES: frozenset[str] = frozenset(
     {
         "AVAILABILITY",

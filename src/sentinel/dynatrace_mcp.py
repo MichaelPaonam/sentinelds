@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
@@ -132,6 +133,10 @@ def _parse_text_content(result: CallToolResult) -> Any:
     starts returning multiple content blocks or non-text content (e.g. an
     ``ImageContent`` chart), we want to know rather than parse the first
     block and ignore the rest.
+
+    Returns ``None`` for the zero-results sentinel strings the server uses
+    instead of an empty JSON envelope (``"No problems found"`` etc.); the
+    callers map that to an empty list.
     """
     if result.isError:
         # The server populates content with the error message in this case.
@@ -148,27 +153,79 @@ def _parse_text_content(result: CallToolResult) -> Any:
     block = result.content[0]
     if not isinstance(block, TextContent):
         raise TypeError(f"expected TextContent, got {type(block).__name__}")
-    return json.loads(block.text)
+    text = block.text.strip()
+    if not text or _is_empty_sentinel(text):
+        return None
+    # The Dynatrace MCP server returns execute_dql results as a markdown
+    # document with the records list inside a ```json ... ``` fence — not as
+    # raw JSON (confirmed during the issue #23 spike, server v1.8.6). Pull
+    # the fenced block out before json.loads.
+    fenced = _extract_json_fence(text)
+    if fenced is not None:
+        return json.loads(fenced)
+    return json.loads(text)
+
+
+# Matches a ```json ... ``` markdown fence anywhere in the text. We use a
+# non-greedy capture so multiple fences in one payload would each parse —
+# in practice the server emits exactly one for the records list.
+_JSON_FENCE_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
+
+
+def _extract_json_fence(text: str) -> str | None:
+    match = _JSON_FENCE_RE.search(text)
+    return match.group(1) if match else None
+
+
+# Plain-text payloads the Dynatrace MCP server returns for zero-result calls
+# instead of a JSON envelope. Confirmed during the issue #23 spike against
+# v1.8.6: list_problems with no matches returns "No problems found". Other
+# tools follow the same pattern (no <thing> found / no records).
+_EMPTY_SENTINEL_PREFIXES: tuple[str, ...] = (
+    "no problems found",
+    "no records",
+    "no results",
+    "no data",
+)
+
+
+def _is_empty_sentinel(text: str) -> bool:
+    lowered = text.lower()
+    return any(lowered.startswith(prefix) for prefix in _EMPTY_SENTINEL_PREFIXES)
 
 
 # --- Acceptance criterion 1: list_problems ----------------------------------
 
 
 async def list_open_problems(
-    session: ClientSession, entity_id: str
+    session: ClientSession, entity_id: str = ""
 ) -> list[dict[str, Any]]:
-    """Return OPEN Davis problems scoped to the workspace entity.
+    """Return ACTIVE Davis problems, optionally scoped to a workspace entity.
+
+    The upstream Dynatrace MCP server validates ``status`` against the set
+    ``{"ACTIVE", "CLOSED", "ALL"}`` (confirmed during the issue #23 spike —
+    the older ``"OPEN"`` value documented in some Dynatrace v2 problems-API
+    pages is rejected at the MCP layer). We always pass ``"ACTIVE"`` to get
+    the open-problem feed.
+
+    ``entity_id`` is optional. The upstream tool rejects an empty-string
+    entity, so we omit the argument entirely when no workspace id is
+    available — useful on a fresh trial tenant where no entity has been
+    materialised yet. Pass a real id once the workspace entity exists in
+    Smartscape.
 
     See the response-shape sample in ``docs/dynatrace-mcp-notes.md``. Each
     element is a dict with at least ``problemId``, ``title``, ``severity``,
     ``status``, ``startTime``, and ``affectedEntities``. Empty list when the
     workspace is healthy — the Sentinel ALLOW path.
     """
-    result = await session.call_tool(
-        "list_problems",
-        {"entity": entity_id, "status": "OPEN"},
-    )
+    args: dict[str, Any] = {"status": "ACTIVE"}
+    if entity_id:
+        args["entity"] = entity_id
+    result = await session.call_tool("list_problems", args)
     payload = _parse_text_content(result)
+    if payload is None:
+        return []
     if isinstance(payload, list):
         # Some Dynatrace MCP versions return the array at the top level.
         return payload
@@ -185,9 +242,14 @@ async def run_dql(session: ClientSession, query: str) -> list[dict[str, Any]]:
     runs on every risky tool call and Grail charges by GB scanned. The
     metadata block (``scannedBytes`` etc.) is dropped; expose it in a
     follow-up issue if Sentinel ever needs to throttle on budget.
+
+    The MCP tool argument is ``dqlStatement`` (confirmed during the issue
+    #23 spike against v1.8.6 — the natural ``query`` name is rejected).
     """
-    result = await session.call_tool("execute_dql", {"query": query})
+    result = await session.call_tool("execute_dql", {"dqlStatement": query})
     payload = _parse_text_content(result)
+    if payload is None:
+        return []
     if isinstance(payload, list):
         return payload
     return payload.get("records", [])
