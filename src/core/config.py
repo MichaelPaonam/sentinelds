@@ -1,7 +1,7 @@
 import sys
 from typing import Optional
 
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,7 +33,8 @@ class Settings(BaseSettings):
 # Global configuration instance
 try:
     settings = Settings()
+except ValidationError as e:
+    raise RuntimeError(f"Configuration validation error: {e}") from e
 except Exception as e:
-    print(f"Warning: Failed to load Settings via Pydantic: {e}", file=sys.stderr)
-    # Fallback to model_construct() so we don't crash hard during import in restricted envs
-    settings = Settings.model_construct()
+    print(f"Warning: unexpected Settings init failure: {e}", file=sys.stderr)
+    raise e

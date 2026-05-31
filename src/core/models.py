@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ class SentinelDecision(BaseModel):
     decision: Literal["ALLOW", "HALT", "QUARANTINE"]
     reason: str
     rule_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     target_tool: str
     mcp_status: Literal["REACHABLE", "UNREACHABLE_FAIL_CLOSED", "UNREACHABLE_FAIL_OPEN"]
     span_id: Optional[str] = None
@@ -30,7 +30,10 @@ class SentinelPolicy(BaseModel):
         default_factory=lambda: ["execute_code", "web_fetch", "model_train"]
     )
     drift_threshold: float = Field(
-        default=0.05, description="Statistical drift threshold before triggering alert"
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="Statistical drift threshold before triggering alert"
     )
 
 

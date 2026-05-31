@@ -42,7 +42,11 @@ otlp_exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
 processor = BatchSpanProcessor(otlp_exporter)
 provider.add_span_processor(processor)
 
-OTEL_SEMCONV_STABILITY_OPT_IN = os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"]
+if "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ:
+    raise EnvironmentError(
+        "Environment variable 'OTEL_SEMCONV_STABILITY_OPT_IN' is required but not set."
+         "(e.g. 'gen_ai_latest_experimental')."
+    )
 GoogleGenAiSdkInstrumentor().instrument()
 
 agent = Agent(
