@@ -14,6 +14,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import StatusCode
 
+from src.tools.web_fetch import fetch_url
+
 AGENT_NAME = "Research Agent"
 resource = Resource.create(
     attributes={"service.name": "sentinelds-agentic-workflow", "agent.name": AGENT_NAME}
@@ -50,7 +52,13 @@ if "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ:
 GoogleGenAiSdkInstrumentor().instrument()
 
 agent = Agent(
-    name="research_agent", model="gemini-2.5-flash", instruction="Be a short factual assistant."
+    name="research_agent",
+    model="gemini-2.5-flash",
+    instruction=(
+        "Be a short factual assistant. "
+        "Use the fetch_url tool to fetch contents of URLs when requested."
+    ),
+    tools=[fetch_url],
 )
 
 runner = InMemoryRunner(agent=agent)
