@@ -104,9 +104,16 @@ sentinelds/
 │   ├── ai-security-threat-modelling.md        ← AISMM pillars, MITRE ATLAS, defense loop
 │   └── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
 ├── src/                                       ← agents + tools + Sentinel (filling in across phases)
-│   ├── dynatrace_smoke_test.py                ← OTLP smoke test (closed: issue #6)
-│   ├── verify_smoke_test.py
-│   └── collector-config.yaml
+│   ├── core/                                  ← Pydantic configuration and core domain models
+│   │   ├── config.py
+│   │   └── models.py
+│   ├── agents/                                ← ADK workspace agents
+│   │   └── single_agent.py
+│   └── smoke/                                 ← verification and smoke-testing utilities
+│       ├── dynatrace_smoke_test.py
+│       ├── verify_smoke_test.py
+│       ├── collector-config.yaml
+│       └── smoke-test-span.json
 ├── pyproject.toml                             ← Python deps (Python 3.12+, uv-managed)
 └── .env.example                               ← required env vars
 ```
@@ -149,8 +156,8 @@ DYNATRACE_API_TOKEN="<your-dynatrace-api-token>"
 ### Verify Dynatrace OTLP plumbing
 
 ```bash
-python src/dynatrace_smoke_test.py    # sends one manual span
-python src/verify_smoke_test.py       # confirms it landed in the tenant
+python src/smoke/dynatrace_smoke_test.py    # sends one manual span
+python src/smoke/verify_smoke_test.py       # confirms it landed in the tenant
 ```
 
 ---

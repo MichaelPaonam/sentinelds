@@ -6,6 +6,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from src.core.config import settings
+
 # 1. Define the service name exactly how it will appear in Dynatrace
 resource = Resource.create(attributes={"service.name": "python-smoke-tester"})
 
@@ -13,8 +15,18 @@ resource = Resource.create(attributes={"service.name": "python-smoke-tester"})
 provider = TracerProvider(resource=resource)
 trace.set_tracer_provider(provider)
 
-# 3. Configure the exporter to stream to the local OneAgent OTLP/HTTP Protobuf endpoint
-otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:14499/otlp/v1/traces")
+# 3. Configure the exporter to stream to the local OneAgent
+# or remote Dynatrace OTLP/HTTP Protobuf endpoint
+endpoint = "http://localhost:14499/otlp/v1/traces"
+headers = {}
+
+if settings.DYNATRACE_API_URL:
+    endpoint = f"{settings.DYNATRACE_API_URL}/otlp/v1/traces"
+
+if settings.DYNATRACE_API_TOKEN:
+    headers["Authorization"] = f"Api-Token {settings.DYNATRACE_API_TOKEN.get_secret_value()}"
+
+otlp_exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
 
 # 4. Add the span processor to the provider
 processor = BatchSpanProcessor(otlp_exporter)

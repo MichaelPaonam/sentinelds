@@ -1,17 +1,17 @@
-import os
-
 from google import genai
+
+from src.core.config import settings
 
 
 def test_vertex_ai_connection():
-    # 1. Grab the project ID from the environment
-    # optionally, you can set a default project here if you want
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    # Default to asia-south1 if not set
-    # location_id = os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-south1")
+    # 1. Grab the project ID from the validated Pydantic settings
+    project_id = settings.GOOGLE_CLOUD_PROJECT
     if not project_id:
-        print("❌ Error: GOOGLE_CLOUD_PROJECT environment variable is not set.")
-        print("Please run: export GOOGLE_CLOUD_PROJECT='your-project-id'")
+        print("❌ Error: GOOGLE_CLOUD_PROJECT environment variable or setting is not set.")
+        print(
+            "Please run: export GOOGLE_CLOUD_PROJECT='your-project-id' ",
+            "or define it in your .env file.",
+        )
         return
 
     print(f"🔄 Initializing GenAI client for project: {project_id}...")
