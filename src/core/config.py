@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     GOOGLE_GENAI_USE_VERTEXAI: bool = True
     GOOGLE_CLOUD_PROJECT: Optional[str] = None
-    GOOGLE_CLOUD_LOCATION: str = "asia-south1"
+    GOOGLE_CLOUD_LOCATION: str = "asia-southeast1"
 
     DYNATRACE_API_URL: Optional[str] = None
     DYNATRACE_API_TOKEN: Optional[SecretStr] = None

@@ -53,7 +53,7 @@ GoogleGenAiSdkInstrumentor().instrument()
 
 agent = Agent(
     name="research_agent",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     instruction=(
         "Be a short factual assistant. "
         "Use the fetch_url tool to fetch contents of URLs when requested."
@@ -72,8 +72,14 @@ if __name__ == "__main__":
 
     with tracer.start_as_current_span("ExecuteAgentWorkflow") as span:
         try:
+            url = "https://opentelemetry.io/"
             prompt_content = Content(
-                parts=[Part.from_text(text="Give me a 1-sentence description of OpenTelemetry.")]
+                parts=[
+                    Part.from_text(
+                        text=f"Which organization created Opentelemetry ?"
+                        f"Answer by looking at this URL: {url}"
+                    )
+                ]
             )
 
             event_stream = runner.run(

@@ -144,7 +144,7 @@ Copy `.env.example` to `.env` and fill in:
 # Google Cloud / Vertex AI for Gemini
 GOOGLE_GENAI_USE_VERTEXAI="true"
 GOOGLE_CLOUD_PROJECT="<your-gcp-project-id>"
-GOOGLE_CLOUD_LOCATION="asia-south1"
+GOOGLE_CLOUD_LOCATION="asia-southeast1"
 
 # Dynatrace OTLP ingest (token scopes: openTelemetryTrace.ingest, metrics.ingest, logs.ingest)
 DYNATRACE_API_URL="https://<your-environment-id>.live.dynatrace.com"
