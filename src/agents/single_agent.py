@@ -37,9 +37,14 @@ if __name__ == "__main__":
         for event in event_stream:
             # Check if this specific frame represents the final text response block
             if hasattr(event, "is_final_response") and event.is_final_response():
-                if hasattr(event, "content") and event.content.parts:
+                content = getattr(event, "content", None)
+                if content is not None and getattr(content, "parts", None):
                     full_text_response += "".join(
-                        [part.text for part in event.content.parts if hasattr(part, "text")]
+                        [
+                            part.text
+                            for part in content.parts
+                            if part and getattr(part, "text", None) and isinstance(part.text, str)
+                        ]
                     )
 
             # Fallback for streaming delta chunks if final response block is skipped
