@@ -118,6 +118,41 @@ class TestParseTextContent(unittest.TestCase):
         with self.assertRaises(TypeError):
             _parse_text_content(result)
 
+    def test_zero_results_sentinel_returns_none(self) -> None:
+        # Confirmed during the live spike against v1.8.6: list_problems with
+        # no matches returns the bare string "No problems found", not a JSON
+        # envelope. The parser maps that to None so callers return [].
+        for sentinel in (
+            "No problems found",
+            "no records returned",
+            "No results",
+            "  No data available  ",
+        ):
+            result = CallToolResult(
+                content=[TextContent(type="text", text=sentinel)],
+                isError=False,
+            )
+            self.assertIsNone(_parse_text_content(result), msg=sentinel)
+
+    def test_markdown_fenced_json_extracted(self) -> None:
+        # execute_dql v1.8.6 returns a markdown document with the records
+        # list inside a ```json ... ``` fence rather than raw JSON.
+        text = (
+            "📊 **DQL Query Results**\n"
+            "- **Scanned Records:** 41\n\n"
+            "```json\n"
+            '[{"event.type": null, "timestamp": "2026-05-31T21:39:51Z"}]\n'
+            "```\n"
+        )
+        result = CallToolResult(
+            content=[TextContent(type="text", text=text)],
+            isError=False,
+        )
+        self.assertEqual(
+            _parse_text_content(result),
+            [{"event.type": None, "timestamp": "2026-05-31T21:39:51Z"}],
+        )
+
 
 class TestListOpenProblems(unittest.IsolatedAsyncioTestCase):
     """Acceptance criterion 1: structured iterable response."""
@@ -139,8 +174,10 @@ class TestListOpenProblems(unittest.IsolatedAsyncioTestCase):
         out = await list_open_problems(session, "WORKSPACE-1")
 
         self.assertEqual(out, problems)
+        # Status filter is "ACTIVE" — confirmed by the issue #23 spike against
+        # @dynatrace-oss/dynatrace-mcp-server v1.8.6 (rejects "OPEN").
         session.call_tool.assert_awaited_once_with(
-            "list_problems", {"entity": "WORKSPACE-1", "status": "OPEN"}
+            "list_problems", {"status": "ACTIVE", "entity": "WORKSPACE-1"}
         )
 
     async def test_empty_problems_returns_empty_list(self) -> None:
@@ -148,12 +185,34 @@ class TestListOpenProblems(unittest.IsolatedAsyncioTestCase):
         session.call_tool = AsyncMock(return_value=_text_result({"problems": []}))
         self.assertEqual(await list_open_problems(session, "WORKSPACE-1"), [])
 
+    async def test_omits_entity_when_unset(self) -> None:
+        # Empty entity -> argument dropped, not passed as "". Matches what the
+        # smoke does on a fresh trial tenant where no workspace entity exists.
+        session = MagicMock()
+        session.call_tool = AsyncMock(return_value=_text_result({"problems": []}))
+
+        await list_open_problems(session, "")
+
+        session.call_tool.assert_awaited_once_with("list_problems", {"status": "ACTIVE"})
+
     async def test_top_level_array_shape_supported(self) -> None:
         # Some MCP server versions return the array at the top level rather
         # than under a "problems" key — accept both.
         session = MagicMock()
         session.call_tool = AsyncMock(return_value=_text_result([{"problemId": "p-1"}]))
         self.assertEqual(await list_open_problems(session, "WORKSPACE-1"), [{"problemId": "p-1"}])
+
+    async def test_no_problems_sentinel_returns_empty_list(self) -> None:
+        # v1.8.6 returns the literal string "No problems found" instead of
+        # an empty JSON envelope. Confirmed by the live spike.
+        session = MagicMock()
+        session.call_tool = AsyncMock(
+            return_value=CallToolResult(
+                content=[TextContent(type="text", text="No problems found")],
+                isError=False,
+            )
+        )
+        self.assertEqual(await list_open_problems(session, ""), [])
 
 
 class TestRunDQL(unittest.IsolatedAsyncioTestCase):
@@ -171,8 +230,10 @@ class TestRunDQL(unittest.IsolatedAsyncioTestCase):
         out = await run_dql(session, "fetch events | limit 1")
 
         self.assertEqual(out, records)
+        # Argument key is "dqlStatement" — confirmed by the issue #23 spike
+        # against @dynatrace-oss/dynatrace-mcp-server v1.8.6.
         session.call_tool.assert_awaited_once_with(
-            "execute_dql", {"query": "fetch events | limit 1"}
+            "execute_dql", {"dqlStatement": "fetch events | limit 1"}
         )
 
     async def test_no_records_returns_empty_list(self) -> None:

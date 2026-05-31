@@ -42,10 +42,28 @@ from src.sentinel.dynatrace_mcp import (
 
 _PROBE_DQL = (
     'fetch events, from:now()-5m\n'
-    '| filter event.kind == "BIZ_EVENT"\n'
     '| fields event.type, timestamp\n'
     '| limit 5'
 )
+
+
+def _dump_raw(label: str, result: object) -> None:
+    """Print the raw CallToolResult content blocks for shape pinning.
+
+    Run when the parsed call fails — lets us see whether the server returned
+    text that isn't JSON, multiple blocks, or a non-text block, without
+    re-running the live tenant for a separate dump script.
+    """
+    is_error = getattr(result, "isError", None)
+    content = getattr(result, "content", []) or []
+    print(f"      [raw {label}] isError={is_error}, blocks={len(content)}")
+    for i, block in enumerate(content):
+        text = getattr(block, "text", None)
+        kind = type(block).__name__
+        if text is not None:
+            print(f"      [raw {label}] block[{i}] {kind}: {text[:1500]!r}")
+        else:
+            print(f"      [raw {label}] block[{i}] {kind}: {block!r}")
 
 
 async def _run() -> int:
@@ -63,15 +81,30 @@ async def _run() -> int:
     async with dynatrace_session(cfg) as session:
         # 1) list_problems — acceptance criterion 1
         print("\n[1/2] list_problems …")
-        problems = await list_open_problems(session, workspace_entity)
-        print(f"      returned {len(problems)} OPEN problem(s)")
+        try:
+            problems = await list_open_problems(session, workspace_entity)
+        except Exception as exc:  # noqa: BLE001
+            print(f"      parse failed: {exc!r}; dumping raw response for shape pinning")
+            args: dict[str, object] = {"status": "ACTIVE"}
+            if workspace_entity:
+                args["entity"] = workspace_entity
+            raw = await session.call_tool("list_problems", args)
+            _dump_raw("list_problems", raw)
+            raise
+        print(f"      returned {len(problems)} ACTIVE problem(s)")
         if problems:
             print("      first problem (truncated):")
             print(json.dumps(problems[0], indent=2)[:1000])
 
         # 2) execute_dql — acceptance criterion 2
         print("\n[2/2] execute_dql …")
-        records = await run_dql(session, _PROBE_DQL)
+        try:
+            records = await run_dql(session, _PROBE_DQL)
+        except Exception as exc:  # noqa: BLE001
+            print(f"      parse failed: {exc!r}; dumping raw response for shape pinning")
+            raw = await session.call_tool("execute_dql", {"dqlStatement": _PROBE_DQL})
+            _dump_raw("execute_dql", raw)
+            raise
         print(f"      returned {len(records)} record(s)")
         if records:
             print("      first record:")
