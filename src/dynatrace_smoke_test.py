@@ -1,9 +1,10 @@
 import time
+
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 # 1. Define the service name exactly how it will appear in Dynatrace
 resource = Resource.create(attributes={"service.name": "python-smoke-tester"})
@@ -26,7 +27,7 @@ print("Sending smoke-test span to OneAgent...")
 with tracer.start_as_current_span("ExecutePythonSmokeTest") as span:
     span.set_attribute("test.origin", "python-sdk-app")
     span.set_attribute("debug.status", "pipeline-clear")
-    time.sleep(0.5) # Simulating a 500ms operation
+    time.sleep(0.5)  # Simulating a 500ms operation
     print("Span executed successfully!")
 
 # 6. Force flush to ensure the data leaves the local memory buffer immediately
