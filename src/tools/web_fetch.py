@@ -20,6 +20,9 @@ def fetch_url(url: str) -> str:
     Returns:
         The fetched web page content as a plain text string.
     """
+    # Validate URL scheme for security
+    if not url.startswith(("http://", "https://")):
+        raise ValueError(f"Invalid URL scheme. Only HTTP and HTTPS are supported: {url}")
     # Parse the host for the Davis AI baselining/detection
     parsed_url = urlparse(url)
     host = parsed_url.hostname or parsed_url.netloc or ""
@@ -67,4 +70,4 @@ def fetch_url(url: str) -> str:
             # Mark the span as errored and record the exception
             span.set_status(trace.StatusCode.ERROR, description=str(e))
             span.record_exception(e)
-            raise e
+            raise

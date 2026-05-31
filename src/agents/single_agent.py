@@ -76,7 +76,7 @@ if __name__ == "__main__":
             prompt_content = Content(
                 parts=[
                     Part.from_text(
-                        text=f"Which organization created Opentelemetry ?"
+                        text=f"Which organization created OpenTelemetry?"
                         f"Answer by looking at this URL: {url}"
                     )
                 ]
