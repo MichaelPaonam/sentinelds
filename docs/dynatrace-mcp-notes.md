@@ -22,7 +22,21 @@ If the server ever returns multiple content blocks or a non-text block, `dynatra
 
 ## `list_problems` — shape
 
-**Tool args:** `{"entity": "<DT_ENTITY_ID>", "status": "OPEN"}`
+**Tool args:** `{"status": "ACTIVE", "entity": "<DT_ENTITY_ID>"}`
+
+> **Spike finding (2026‑06‑01, server v1.8.6).** The MCP server rejects
+> `status: "OPEN"` with `MCP error -32602` and validates against
+> `{"ACTIVE", "CLOSED", "ALL"}`. The Sentinel client sends `"ACTIVE"`. The
+> Dynatrace v2 problems REST API still uses `"OPEN"` / `"CLOSED"` — the MCP
+> layer normalises to its own vocabulary. Also: passing an empty-string
+> ``entity`` is rejected, so the client omits the key entirely when no
+> workspace id is set (useful on a fresh trial tenant before the workspace
+> entity exists in Smartscape).
+>
+> **Empty-result sentinel.** When the call returns zero matches, the server
+> emits the bare text ``"No problems found"`` instead of a JSON envelope.
+> ``dynatrace_mcp._parse_text_content`` recognises that and yields an empty
+> list. Confirmed against the trial tenant on 2026‑06‑01.
 
 **Expected `result.content[0].text` (JSON):**
 
@@ -61,7 +75,41 @@ When confirmed, paste the verbatim capture below this block and delete the place
 
 ## `execute_dql` — shape
 
-**Tool args:** `{"query": "<DQL string with explicit timeframe>"}`
+**Tool args:** `{"dqlStatement": "<DQL string with explicit timeframe>"}`
+
+> **Spike finding (2026‑06‑01, server v1.8.6).** The argument key is
+> ``dqlStatement``, not ``query`` — the natural name is rejected with
+> `MCP error -32602: expected string, received undefined`.
+>
+> **Records are markdown-fenced JSON, not raw JSON.** The server returns a
+> markdown document framed as user-facing copy with a `\`\`\`json … \`\`\``
+> code fence containing a bare list of record objects (no ``records`` /
+> ``metadata`` envelope). Verbatim capture from the trial tenant:
+>
+> ```
+> 📊 **DQL Query Results**
+>
+> - **Scanned Records:** 41
+> - **Scanned Bytes:** 0.00 GB (Session total: 0.00 GB / 50 GB budget, 0.0% used)
+>
+> 📋 **Query Results**: (1 records) — rendered by the MCP App UI below.
+>
+> > ℹ️ The MCP App is rendering the results interactively. Do NOT generate
+> > Mermaid diagrams, ASCII charts, or markdown tables from this data.
+> ```json
+> [
+>   {
+>     "event.type": null,
+>     "timestamp": "2026-05-31T21:39:51.583000000Z"
+>   }
+> ]
+> ```
+> ```
+>
+> ``dynatrace_mcp._parse_text_content`` extracts the fenced block before
+> ``json.loads``. The metadata text (``scannedBytes`` / budget usage) is
+> dropped — expose it in a follow-up issue if Sentinel needs to throttle on
+> Grail budget.
 
 **Sentinel pre-flight DQL (v0):**
 
@@ -121,8 +169,9 @@ The Python process inherits **only** these env vars into the subprocess (see `dy
 
 ## Spike checklist (issue #23 acceptance gate)
 
-- [ ] `uv run python -m src.smoke.sentinel_mcp_smoke` exits 0 against a live tenant
-- [ ] `list_problems` capture pasted above
-- [ ] `execute_dql` capture pasted above
-- [ ] Both response shapes parse cleanly into `list[dict]` via `dynatrace_mcp.py`
-- [ ] If any tier of the [fallback ladder](dynatrace-mcp-options.md#fallback-ladder-per-issue-23-risk-note) had to be used, decision recorded here with reason
+- [x] **Node.js ≥ 22.10** on `PATH` before running the smoke. The MCP server uses `webidl.util.markAsUncloneable` from `undici`, which is a Node 22+ API; Node 20 fails at server startup with a `TypeError`. With `nvm`: `nvm install 22 && nvm use 22`.
+- [x] `uv run python -m src.smoke.sentinel_mcp_smoke` exits 0 against a live tenant *(2026‑06‑01, trial tenant `cjw98236.apps.dynatrace.com`)*
+- [x] `list_problems` capture pinned above (zero-result sentinel `"No problems found"`)
+- [x] `execute_dql` capture pinned above (markdown-fenced bare list)
+- [x] Both response shapes parse cleanly into `list[dict]` via `dynatrace_mcp.py`
+- [ ] If any tier of the [fallback ladder](dynatrace-mcp-options.md#fallback-ladder-per-issue-23-risk-note) had to be used, decision recorded here with reason — *not used; primary path (Local Dynatrace MCP Server v1.8.6) shipped*
