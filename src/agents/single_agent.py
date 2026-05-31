@@ -45,7 +45,7 @@ provider.add_span_processor(processor)
 if "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ:
     raise EnvironmentError(
         "Environment variable 'OTEL_SEMCONV_STABILITY_OPT_IN' is required but not set."
-         "(e.g. 'gen_ai_latest_experimental')."
+        "(e.g. 'gen_ai_latest_experimental')."
     )
 GoogleGenAiSdkInstrumentor().instrument()
 
