@@ -30,7 +30,6 @@ ENV/
 
 # uv / poetry
 .uv/
-poetry.lock.bak
 
 # Environment & secrets
 .env
