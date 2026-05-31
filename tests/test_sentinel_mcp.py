@@ -220,9 +220,7 @@ class TestRunDQL(unittest.IsolatedAsyncioTestCase):
 
     async def test_returns_records_array(self) -> None:
         session = MagicMock()
-        records = [
-            {"timestamp": "2026-06-01T12:34:56Z", "severity": "high", "attack_id": "A1"}
-        ]
+        records = [{"timestamp": "2026-06-01T12:34:56Z", "severity": "high", "attack_id": "A1"}]
         session.call_tool = AsyncMock(
             return_value=_text_result({"records": records, "metadata": {"scannedBytes": 0}})
         )

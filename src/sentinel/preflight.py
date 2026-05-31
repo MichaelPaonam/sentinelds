@@ -63,12 +63,12 @@ def _sentinel_event_dql(workspace_entity_id: str) -> str:
     MCP client sets via ``DT_GRAIL_QUERY_BUDGET_GB``.
     """
     return (
-        'fetch events, from:now()-5m\n'
+        "fetch events, from:now()-5m\n"
         '| filter event.kind == "BIZ_EVENT"\n'
         '   and event.type == "sentinelds.attack.detected"\n'
         f'| filter dt.entity.workspace == "{workspace_entity_id}"\n'
-        '| fields severity, attack_id, agent\n'
-        '| limit 10'
+        "| fields severity, attack_id, agent\n"
+        "| limit 10"
     )
 
 

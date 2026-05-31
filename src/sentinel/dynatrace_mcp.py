@@ -147,9 +147,7 @@ def _parse_text_content(result: CallToolResult) -> Any:
                 break
         raise RuntimeError(f"Dynatrace MCP tool call returned isError: {message!r}")
     if len(result.content) != 1:
-        raise ValueError(
-            f"expected exactly one content block, got {len(result.content)}"
-        )
+        raise ValueError(f"expected exactly one content block, got {len(result.content)}")
     block = result.content[0]
     if not isinstance(block, TextContent):
         raise TypeError(f"expected TextContent, got {type(block).__name__}")
@@ -197,9 +195,7 @@ def _is_empty_sentinel(text: str) -> bool:
 # --- Acceptance criterion 1: list_problems ----------------------------------
 
 
-async def list_open_problems(
-    session: ClientSession, entity_id: str = ""
-) -> list[dict[str, Any]]:
+async def list_open_problems(session: ClientSession, entity_id: str = "") -> list[dict[str, Any]]:
     """Return ACTIVE Davis problems, optionally scoped to a workspace entity.
 
     The upstream Dynatrace MCP server validates ``status`` against the set

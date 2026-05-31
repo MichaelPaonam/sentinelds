@@ -40,11 +40,7 @@ from src.sentinel.dynatrace_mcp import (
     run_dql,
 )
 
-_PROBE_DQL = (
-    'fetch events, from:now()-5m\n'
-    '| fields event.type, timestamp\n'
-    '| limit 5'
-)
+_PROBE_DQL = "fetch events, from:now()-5m\n| fields event.type, timestamp\n| limit 5"
 
 
 def _dump_raw(label: str, result: object) -> None:
