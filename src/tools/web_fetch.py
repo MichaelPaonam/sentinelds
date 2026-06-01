@@ -29,7 +29,7 @@ def fetch_url(url: str) -> str:
 
     # Start a manual OTel span named "web_fetch" per requirements
     with tracer.start_as_current_span("web_fetch") as span:
-        # Set mandatory span attributes (docs/agents-exploit-scenarios.md §A1.3)
+        # Set mandatory span attributes (docs/agents-exploit-scenarios.md section A1.3)
         span.set_attribute("tool.name", "web_fetch")
         span.set_attribute("tool.args.url", url)
         span.set_attribute("http.url", url)

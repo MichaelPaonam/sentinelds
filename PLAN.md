@@ -13,7 +13,7 @@ This plan is the contract for *what* and *when*. The threat-model framing and st
 - [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) — SANS AISMM pillars/stages, MITRE ATLAS mapping, RAI-AgentSec controls, the four-phase defense loop, trust boundaries
 - [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md) — A1 and A2 demo walkthroughs (setup → attack → telemetry → detection → Sentinel decision → enforcement → negative tests)
 
-The board at https://github.com/users/MichaelPaonam/projects/1 is reorganized around three **Phase Epics** that close M1 / M2 / M3+Submission. The day-by-day in §7 below is the original chronological breakdown — it stays as a reference, but **the board is the source of truth for execution**.
+The board at https://github.com/users/MichaelPaonam/projects/1 is reorganized around three **Phase Epics** that close M1 / M2 / M3+Submission. The day-by-day in section 7 below is the original chronological breakdown — it stays as a reference, but **the board is the source of truth for execution**.
 
 ---
 
@@ -125,7 +125,7 @@ The "wow" moment: the **Sentinel Agent** notices Davis AI has flagged the worksp
 
 The two attacks **do not exploit weaknesses in Gemini's safety tuning**. They exploit the agent architecture:
 
-- **A1** works because the Research Agent is *instructed* to fetch web pages and incorporate their content. Frontier models still fall to *indirect* prompt injection at meaningful rates because the malicious instruction arrives as content the agent was told to trust. Don't use a crude `IGNORE PREVIOUS INSTRUCTIONS` payload — modern Gemini will refuse it. Use a realistic indirect injection (e.g., a fake "editor's note" framing the malicious action as IRB-mandated workflow). See [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md) §A1.1 and issue #25 for the payload pattern.
+- **A1** works because the Research Agent is *instructed* to fetch web pages and incorporate their content. Frontier models still fall to *indirect* prompt injection at meaningful rates because the malicious instruction arrives as content the agent was told to trust. Don't use a crude `IGNORE PREVIOUS INSTRUCTIONS` payload — modern Gemini will refuse it. Use a realistic indirect injection (e.g., a fake "editor's note" framing the malicious action as IRB-mandated workflow). See [`docs/agents-exploit-scenarios.md`](docs/agents-exploit-scenarios.md) section A1.1 and issue #25 for the payload pattern.
 - **A2** never touches the LLM — the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
 
 This is the **point** of SentinelDS, and the demo narration should say it explicitly: *"Model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow, not the model's alignment. SentinelDS defends at the architectural layer where the actual exposure lives."* This matches the SANS AISMM Stage 4 *Confused Deputy* framing in the threat-model doc.
@@ -316,7 +316,7 @@ The day-level breakdown below is the **original chronological reference**. The b
 | Outcome |
 |---------|
 | Dynatrace dashboard (#36) — workspace overview, problem timeline, Sentinel decision log, dataset-stats drift; no-login sandbox URL for judges. |
-| Demo script rehearsed (#37) against the 7-scene outline in `docs/agents-exploit-scenarios.md` §5. |
+| Demo script rehearsed (#37) against the 7-scene outline in `docs/agents-exploit-scenarios.md` section 5. |
 | README v1 (#38) — pitch, architecture, two-attack walkthrough, doc links. |
 | **M3 (target Mon Jun 9):** demo video recorded (#39) — ≤3 min, narrated, against stable replay (never live). |
 | Buffer (#40) — fix anything embarrassing; tighten README; export architecture diagram. |

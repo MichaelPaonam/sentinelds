@@ -9,7 +9,7 @@ and treats the verdict as policy:
 * ``ALLOW`` — normal execution.
 
 The v0 ruleset is deliberately tiny — full policy work belongs in a later
-issue (see ``PLAN.md`` §6). The two rules below are enough to demo the
+issue (see ``PLAN.md`` section 6). The two rules below are enough to demo the
 ALLOW/WARN/HALT mechanism end-to-end against the two staged attacks (A1 +
 A2):
 

@@ -2,7 +2,7 @@
 
 This doc compares five overlapping Dynatrace offerings that all involve "MCP" or "agentic" framing, picks the one we use for the [Sentinel Agent](ai-security-threat-modelling.md) pre-flight gate, and records the fallback ladder.
 
-The decision belongs to issue [#23 — Dynatrace MCP client wired to Sentinel Agent v0](https://github.com/MichaelPaonam/sentinelds/issues/23) (Day-1 spike output, parent #17). Cross-reference: [`ai-security-threat-modelling.md` §6](ai-security-threat-modelling.md) (Phase 3 DECIDE).
+The decision belongs to issue [#23 — Dynatrace MCP client wired to Sentinel Agent v0](https://github.com/MichaelPaonam/sentinelds/issues/23) (Day-1 spike output, parent #17). Cross-reference: [`ai-security-threat-modelling.md` section 6](ai-security-threat-modelling.md) (Phase 3 DECIDE).
 
 > **Sources adversarially verified** against the upstream `dynatrace-oss/dynatrace-mcp` repo, the Dynatrace Hub, and Dynatrace docs in June 2026. Where a claim could not be confirmed end-to-end, it is tagged **⚠ unverified** inline.
 
@@ -72,7 +72,7 @@ The decision belongs to issue [#23 — Dynatrace MCP client wired to Sentinel Ag
 - **Auth.** Platform OAuth / Platform Token with `automation:workflows:read|write|run` (`admin` for full management).
 - **Tools / capabilities.** Event/schedule/manual triggers, conditional logic, retries, loops, parallel branches, Slack/email/Jira/ServiceNow/cloud connectors, run-JavaScript step, full audit trail.
 - **Pros.** Native to Dynatrace, no extra infra. First-class Davis-problem and security-problem triggers. Built-in audit trail. Good as the **post-HALT reaction layer** (page on-call, open ticket, freeze workspace).
-- **Cons.** Async by design — not built to return ALLOW/WARN/HALT to a blocking caller in <1 s. No documented sync REST endpoint. Adds a second policy surface (Workflows DSL) on top of Sentinel's Python policy — risks scope creep against `PLAN.md` §4. "Agentic" framing in marketing refers to Dynatrace's own built-in agents, not a host for external Python agents.
+- **Cons.** Async by design — not built to return ALLOW/WARN/HALT to a blocking caller in <1 s. No documented sync REST endpoint. Adds a second policy surface (Workflows DSL) on top of Sentinel's Python policy — risks scope creep against `PLAN.md` section 4. "Agentic" framing in marketing refers to Dynatrace's own built-in agents, not a host for external Python agents.
 - **GA status.** GA on the Dynatrace Platform (Grail/AppEngine generation). Not preview. Consumption-priced; workflow executions and any DQL inside them count against Grail budget.
 - **Sources.**
   - [docs.dynatrace.com/docs/shortlink/workflows](https://docs.dynatrace.com/docs/shortlink/workflows)
@@ -80,7 +80,7 @@ The decision belongs to issue [#23 — Dynatrace MCP client wired to Sentinel Ag
 
 ### 5. "MCP Server Tools on Dynatrace" — the tool catalogue
 
-This phrasing in the user's prompt refers to the *catalogue of tools the Dynatrace MCP server exposes*, not a separate product. It is fully covered by §1 above (the `tools_or_capabilities` list) and §2 (same set, hosted). Top-3 tools relevant to the Sentinel pre-flight:
+This phrasing in the user's prompt refers to the *catalogue of tools the Dynatrace MCP server exposes*, not a separate product. It is fully covered by section 1 above (the `tools_or_capabilities` list) and section 2 (same set, hosted). Top-3 tools relevant to the Sentinel pre-flight:
 
 1. `list_problems` — open Davis problems on the workspace entity. Direct hit on issue #23 acceptance criterion 1.
 2. `execute_dql` — Grail query for custom Sentinel attack events / span filters. Direct hit on issue #23 acceptance criterion 2.
@@ -98,7 +98,7 @@ This phrasing in the user's prompt refers to the *catalogue of tools the Dynatra
 - **Lowest-friction path to M1 / M2 on the Jun 11 deadline.** Stdio co-locates the server with the Python process — no inbound port, no extra Cloud Run service, sub-second round-trips fit a synchronous pre-flight gate. The Python `mcp` SDK already ships in the project's deps.
 - **Drops the Remote MCP Server** as the *primary* target only because its public schema docs are thinner in June 2026 — but it is the migration target post-hackathon; keep the client behind a transport-abstraction so swapping `stdio_client` for `streamablehttp_client` is one file.
 - **Drops Dynatrace AI Observability** as the gate. It stays in the architecture as the **OTel sink** so the demo dashboard tells the full agent story, and Sentinel's `execute_dql` queries can target spans/events it produces — but it is not synchronously callable.
-- **Drops Workflows** from the pre-flight loop entirely (async, no sync run-and-wait). Keep one slide showing it as the **post-HALT reaction layer** (Sentinel HALT → workflow pages on-call), which is honest to `PLAN.md` §3 without inflating scope.
+- **Drops Workflows** from the pre-flight loop entirely (async, no sync run-and-wait). Keep one slide showing it as the **post-HALT reaction layer** (Sentinel HALT → workflow pages on-call), which is honest to `PLAN.md` section 3 without inflating scope.
 
 Caveats acknowledged honestly: the local repo is in maintenance mode, `send_event` is human-approval-gated as of v1.8.6 (so auto-emit Sentinel verdicts over OTel directly, not via `send_event`), and the Davis-on-agent-spans story is **⚠ unverified** as a named feature, so the demo narration says "Sentinel pre-flight queries Dynatrace for problems" rather than "Davis caught the prompt injection."
 
