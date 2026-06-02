@@ -1,3 +1,9 @@
+"""Helper script to list available Gemini foundation models.
+
+Queries the Google GenAI API to fetch and display model identifiers
+and their supported actions.
+"""
+
 from google import genai
 
 # Ensure your local authentication or application credentials match your GCP project

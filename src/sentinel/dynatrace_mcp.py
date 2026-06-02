@@ -171,6 +171,14 @@ _JSON_FENCE_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 
 
 def _extract_json_fence(text: str) -> str | None:
+    """Extract JSON content from a markdown code block fence.
+
+    Args:
+        text: The raw text containing the fenced JSON.
+
+    Returns:
+        The extracted JSON string, or None if no match is found.
+    """
     match = _JSON_FENCE_RE.search(text)
     return match.group(1) if match else None
 
@@ -188,7 +196,15 @@ _EMPTY_SENTINEL_PREFIXES: tuple[str, ...] = (
 
 
 def _is_empty_sentinel(text: str) -> bool:
-    lowered = text.lower()
+    """Check if the response text is a plain-text empty result sentinel.
+
+    Args:
+        text: The text to check.
+
+    Returns:
+        True if the text matches an empty sentinel prefix, False otherwise.
+    """
+    lowered = text.lower().strip()
     return any(lowered.startswith(prefix) for prefix in _EMPTY_SENTINEL_PREFIXES)
 
 

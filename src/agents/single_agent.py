@@ -1,3 +1,9 @@
+"""Single agent execution loop for the Research Agent.
+
+This module sets up the Google ADK Research Agent, configures OpenTelemetry tracing
+routed to Dynatrace, registers the fetch_url tool, and executes a baseline query.
+"""
+
 import os
 import sys
 
