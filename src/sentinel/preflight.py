@@ -133,7 +133,7 @@ class Sentinel:
 
         mcp_reachable = sess is not None
 
-        if mcp_reachable:
+        if sess is not None:
             try:
                 # 1) Check active open problems
                 problems = await list_open_problems(sess, ws_id)
