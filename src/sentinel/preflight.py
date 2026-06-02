@@ -206,7 +206,8 @@ def sentinel_guard(tool_name: str) -> Any:
                 verdict = await Sentinel.preflight(tool_name=tool_name)
                 if verdict == Verdict.HALT:
                     raise PermissionError(
-                        f"Sentinel halted execution of tool '{tool_name}' due to active security risk."
+                        f"Sentinel halted execution of tool '{tool_name}'"
+                        f"due to active security risk."
                     )
                 return await func(*args, **kwargs)
 
@@ -219,7 +220,8 @@ def sentinel_guard(tool_name: str) -> Any:
                 verdict = run_async_in_sync(Sentinel.preflight(tool_name=tool_name))
                 if verdict == Verdict.HALT:
                     raise PermissionError(
-                        f"Sentinel halted execution of tool '{tool_name}' due to active security risk."
+                        f"Sentinel halted execution of tool '{tool_name}'"
+                        f"due to active security risk."
                     )
                 return func(*args, **kwargs)
 

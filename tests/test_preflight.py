@@ -5,7 +5,8 @@ These tests assert that:
 2. Healthy MCP allows tool calls.
 3. Active open problems trigger HALT.
 4. Custom BizEvents trigger HALT/WARN depending on severity.
-5. Unreachable MCP triggers fail-closed (HALT) for risky tools and fail-open (WARN) for advisory tools.
+5. Unreachable MCP triggers fail-closed (HALT) for risky tools
+and fail-open (WARN) for advisory tools.
 6. The @sentinel_guard decorator correctly intercepts execution.
 """
 
@@ -56,10 +57,8 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
 
         # Patch list_open_problems to return empty list, run_dql to return empty list
         with (
-            patch(
-                "src.sentinel.preflight.list_open_problems", AsyncMock(return_value=[])
-            ) as mock_problems,
-            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=[])) as mock_dql,
+            patch("src.sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
+            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=[])),
             patch("src.sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
@@ -245,7 +244,10 @@ class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await async_tool(), "async success")
 
     async def test_decorator_raises_on_halt(self) -> None:
-        """If preflight is HALT, the decorated functions must raise PermissionError and not execute."""
+        """
+        If preflight is HALT,
+        the decorated functions must raise PermissionError and not execute.
+        """
         sync_called = False
         async_called = False
 
