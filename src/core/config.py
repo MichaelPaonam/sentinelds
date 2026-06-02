@@ -1,3 +1,9 @@
+"""Configuration module for SentinelDS.
+
+This module loads environment variables and parses configuration settings
+using Pydantic BaseSettings, enforcing schema and validation constraints.
+"""
+
 import sys
 from typing import Optional
 

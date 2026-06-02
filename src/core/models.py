@@ -1,3 +1,9 @@
+"""Domain models and schemas for SentinelDS.
+
+This module defines Pydantic schemas for Sentinel policy rules, decision logs,
+and workspace security states.
+"""
+
 from datetime import datetime, timezone
 from typing import List, Literal, Optional
 

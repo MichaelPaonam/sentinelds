@@ -17,6 +17,15 @@ class TestWebFetchTool(unittest.TestCase):
         self.test_body = b"Drowsiness-detection research paper summary and data."
         self.test_hash = hashlib.sha256(self.test_body).hexdigest()
 
+        # Mock preflight check to keep the tool test green in isolation (avoid fail-closed)
+        self.preflight_patcher = patch(
+            "src.sentinel.preflight.Sentinel.preflight", return_value="ALLOW"
+        )
+        self.mock_preflight = self.preflight_patcher.start()
+
+    def tearDown(self) -> None:
+        self.preflight_patcher.stop()
+
     @patch("src.tools.web_fetch.tracer")
     @patch("httpx.stream")
     def test_fetch_url_success(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:

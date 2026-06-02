@@ -63,6 +63,11 @@ def _dump_raw(label: str, result: object) -> None:
 
 
 async def _run() -> int:
+    """Run the live MCP integration tests against a Dynatrace environment.
+
+    Returns:
+        0 on success, or raises an exception.
+    """
     load_dotenv()
     cfg = DynatraceMCPConfig.from_env()
 
@@ -111,6 +116,7 @@ async def _run() -> int:
 
 
 def main() -> None:
+    """Main entry point for the Sentinel MCP smoke test."""
     try:
         sys.exit(asyncio.run(_run()))
     except KeyError as missing_env:

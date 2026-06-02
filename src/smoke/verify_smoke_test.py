@@ -1,9 +1,12 @@
+"""Smoke test for verifying Vertex AI connection and credentials."""
+
 from google import genai
 
 from src.core.config import settings
 
 
 def test_vertex_ai_connection():
+    """Verify the connection to Vertex AI using Google GenAI SDK."""
     # 1. Grab the project ID from the validated Pydantic settings
     project_id = settings.GOOGLE_CLOUD_PROJECT
     if not project_id:

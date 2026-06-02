@@ -1,3 +1,9 @@
+"""Smoke test for streaming OpenTelemetry traces to Dynatrace OneAgent.
+
+This script manually starts an OTel tracer provider, configures the OTLPSpanExporter,
+emits a sample span, and flushes it to the local OneAgent daemon.
+"""
+
 import time
 
 from opentelemetry import trace
