@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 from opentelemetry.trace import StatusCode
 
+from src.sentinel.preflight import Verdict
 from src.tools.web_fetch import fetch_url
 
 
@@ -19,7 +20,7 @@ class TestWebFetchTool(unittest.TestCase):
 
         # Mock preflight check to keep the tool test green in isolation (avoid fail-closed)
         self.preflight_patcher = patch(
-            "src.sentinel.preflight.Sentinel.preflight", return_value="ALLOW"
+            "src.sentinel.preflight.Sentinel.preflight", return_value=Verdict.ALLOW
         )
         self.mock_preflight = self.preflight_patcher.start()
 

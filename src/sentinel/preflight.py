@@ -80,6 +80,11 @@ def run_async_in_sync(coro: Any) -> Any:
 class Sentinel:
     """The Sentinel Agent pre-flight security controller."""
 
+    # NOTE: These class-level globals are process-wide shared state. In a multi-agent or
+    # concurrent setting, one set_context() call can clobber another before preflight runs,
+    # causing decisions to be evaluated against the wrong workspace/session. Safe for the
+    # single-workspace, sequential hackathon demo; replace with contextvars or a per-dispatch
+    # Context object before running concurrent agents in production.
     _session: ClientSession | None = None
     _workspace_entity_id: str = "WORKSPACE-1"
     _agent_name_context: str = "Unknown Agent"
@@ -157,9 +162,12 @@ class Sentinel:
                     else:
                         decision = Verdict.ALLOW
                         rule_fired = "DEFAULT_ALLOW"
-            except Exception as e:
+            except Exception:
                 # Log warning but treat as unreachable to activate fail-closed/open policy
-                logger.warning(f"Error querying Dynatrace MCP during pre-flight: {e}")
+                logger.warning(
+                    "Error querying Dynatrace MCP during pre-flight",
+                    exc_info=True,
+                )
                 mcp_reachable = False
 
         if not mcp_reachable:
@@ -188,9 +196,13 @@ class Sentinel:
         return decision
 
 
-async def preflight(session: ClientSession, workspace_entity_id: str) -> Verdict:
+async def preflight(
+    session: ClientSession, workspace_entity_id: str, tool_name: str = "legacy_tool"
+) -> Verdict:
     """Legacy pre-flight function for backwards compatibility."""
-    return await Sentinel.preflight(session=session, workspace_entity_id=workspace_entity_id)
+    return await Sentinel.preflight(
+        session=session, workspace_entity_id=workspace_entity_id, tool_name=tool_name
+    )
 
 
 def sentinel_guard(tool_name: str) -> Any:
@@ -206,7 +218,7 @@ def sentinel_guard(tool_name: str) -> Any:
                 verdict = await Sentinel.preflight(tool_name=tool_name)
                 if verdict == Verdict.HALT:
                     raise PermissionError(
-                        f"Sentinel halted execution of tool '{tool_name}'"
+                        f"Sentinel halted execution of tool '{tool_name}' "
                         f"due to active security risk."
                     )
                 return await func(*args, **kwargs)
@@ -220,7 +232,7 @@ def sentinel_guard(tool_name: str) -> Any:
                 verdict = run_async_in_sync(Sentinel.preflight(tool_name=tool_name))
                 if verdict == Verdict.HALT:
                     raise PermissionError(
-                        f"Sentinel halted execution of tool '{tool_name}'"
+                        f"Sentinel halted execution of tool '{tool_name}' "
                         f"due to active security risk."
                     )
                 return func(*args, **kwargs)

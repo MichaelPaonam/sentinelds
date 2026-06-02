@@ -219,6 +219,36 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(log_payload["rule_fired"], "MCP_UNREACHABLE_FAIL_OPEN")
             self.assertEqual(log_payload["decision"], "WARN")
 
+    async def test_unconfigured_mcp_risky_tool_fail_closed(self) -> None:
+        """If no session is configured (session=None), risky tools must fail-closed (HALT)."""
+        with patch("src.sentinel.preflight.logger") as mock_logger:
+            verdict = await Sentinel.preflight(
+                session=None,
+                workspace_entity_id="WORKSPACE-TEST",
+                tool_name="web_fetch",
+            )
+            self.assertEqual(verdict, Verdict.HALT)
+
+            log_arg = mock_logger.info.call_args[0][0]
+            log_payload = json.loads(log_arg)
+            self.assertEqual(log_payload["rule_fired"], "MCP_UNREACHABLE_FAIL_CLOSED")
+            self.assertEqual(log_payload["decision"], "HALT")
+
+    async def test_unconfigured_mcp_advisory_tool_fail_open(self) -> None:
+        """If no session is configured (session=None), advisory tools must fail-open (WARN)."""
+        with patch("src.sentinel.preflight.logger") as mock_logger:
+            verdict = await Sentinel.preflight(
+                session=None,
+                workspace_entity_id="WORKSPACE-TEST",
+                tool_name="search",
+            )
+            self.assertEqual(verdict, Verdict.WARN)
+
+            log_arg = mock_logger.info.call_args[0][0]
+            log_payload = json.loads(log_arg)
+            self.assertEqual(log_payload["rule_fired"], "MCP_UNREACHABLE_FAIL_OPEN")
+            self.assertEqual(log_payload["decision"], "WARN")
+
 
 class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
     """Verify that the @sentinel_guard decorator correctly intercepts execution."""
@@ -239,6 +269,23 @@ class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
 
         with patch(
             "src.sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.ALLOW)
+        ):
+            self.assertEqual(sync_tool(), "sync success")
+            self.assertEqual(await async_tool(), "async success")
+
+    async def test_decorator_allows_execution_on_warn(self) -> None:
+        """If preflight is WARN, the decorated functions still execute successfully."""
+
+        @sentinel_guard("search")
+        def sync_tool() -> str:
+            return "sync success"
+
+        @sentinel_guard("search")
+        async def async_tool() -> str:
+            return "async success"
+
+        with patch(
+            "src.sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.WARN)
         ):
             self.assertEqual(sync_tool(), "sync success")
             self.assertEqual(await async_tool(), "async success")
