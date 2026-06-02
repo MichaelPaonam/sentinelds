@@ -25,7 +25,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 | **A1 — Indirect prompt injection** | Research Agent (web fetch) | Trusted web content carries hidden instructions to exfiltrate data | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
 | **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
 
-Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` §9](PLAN.md) as future work.
+Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
 
 ### Why the attacks succeed against a hardened Gemini
 
@@ -90,7 +90,7 @@ Out of scope for the hackathon: governance artifacts (AI Governance Council, NHI
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) §6–§7.
+Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
 
 ---
 
@@ -172,7 +172,7 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 | Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | Pending |
 | Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Pending |
 
-**Slip rules** (per `PLAN.md` §7): if M1 slips, demo A1 only; if M2 slips, skip dashboard polish; **never compromise on M3** — a working video with rougher code outperforms a polished repo without one.
+**Slip rules** (per `PLAN.md` section 7): if M1 slips, demo A1 only; if M2 slips, skip dashboard polish; **never compromise on M3** — a working video with rougher code outperforms a polished repo without one.
 
 ---
 

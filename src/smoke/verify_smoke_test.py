@@ -29,7 +29,7 @@ def test_vertex_ai_connection():
 
         # 3. Execute a single, low-latency call
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents='Respond with exactly three words: "Connection is successful."',
         )
 
