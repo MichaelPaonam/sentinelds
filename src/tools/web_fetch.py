@@ -1,13 +1,18 @@
+"""Web fetch tool with sentinel protection and OpenTelemetry instrumentation."""
+
 import hashlib
 from urllib.parse import urlparse
 
 import httpx
 from opentelemetry import trace
 
+from src.sentinel.preflight import sentinel_guard
+
 # Create a tracer for sentinelds tools
 tracer = trace.get_tracer("sentinelds.tools")
 
 
+@sentinel_guard("web_fetch")
 def fetch_url(url: str) -> str:
     """Fetches the content of a specified URL.
 

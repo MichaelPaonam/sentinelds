@@ -1,4 +1,4 @@
-"""Sentinel pre-flight gate (v0).
+"""Sentinel pre-flight gate.
 
 The Sentinel Agent calls :func:`preflight` before each risky agent tool call
 and treats the verdict as policy:
@@ -7,34 +7,27 @@ and treats the verdict as policy:
 * ``WARN`` — let the tool call through but tag its span so the dashboard
   highlights it.
 * ``ALLOW`` — normal execution.
-
-The v0 ruleset is deliberately tiny — full policy work belongs in a later
-issue (see ``PLAN.md`` section 6). The two rules below are enough to demo the
-ALLOW/WARN/HALT mechanism end-to-end against the two staged attacks (A1 +
-A2):
-
-1. Any **OPEN Davis problem** with a severity that indicates a real
-   incident on the workspace entity → ``HALT``. Davis's own anomaly
-   detection is the primary signal.
-2. Any **sentinelds custom event** emitted in the last 5 minutes →
-   ``HALT`` if its severity is ``high``, ``WARN`` otherwise. These are the
-   explicit attack-detection events the A1/A2 instrumentation emits when it
-   matches a payload pattern (see ``docs/agents-exploit-scenarios.md``).
-
-Otherwise → ``ALLOW``.
 """
 
 from __future__ import annotations
 
+import asyncio
+import functools
+import inspect
+import json
+import logging
+import sys
 from enum import Enum
+from typing import Any
 
 from mcp import ClientSession
 
 from src.sentinel.dynatrace_mcp import list_open_problems, run_dql
 
+logger = logging.getLogger("sentinel.preflight")
+
 # Davis severity values that should trip a HALT on the workspace entity.
 # Severity vocabulary: https://docs.dynatrace.com/docs/observe/problems
-# (Status filter "ACTIVE" — see dynatrace_mcp.list_open_problems.)
 _HALT_SEVERITIES: frozenset[str] = frozenset(
     {
         "AVAILABILITY",
@@ -55,13 +48,7 @@ class Verdict(str, Enum):
 
 
 def _sentinel_event_dql(workspace_entity_id: str) -> str:
-    """DQL for sentinelds attack-detection events in the last 5 minutes.
-
-    The timeframe is intentionally short — this query runs on every risky
-    tool call. A 5-minute window is wide enough to catch a multi-step attack
-    chain but tight enough to keep Grail GB-scanned within the budget the
-    MCP client sets via ``DT_GRAIL_QUERY_BUDGET_GB``.
-    """
+    """DQL for sentinelds attack-detection events in the last 5 minutes."""
     return (
         "fetch events, from:now()-5m\n"
         '| filter event.kind == "BIZ_EVENT"\n'
@@ -72,20 +59,170 @@ def _sentinel_event_dql(workspace_entity_id: str) -> str:
     )
 
 
+def run_async_in_sync(coro: Any) -> Any:
+    """Run an async coroutine synchronously, handling running event loops if any."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    if loop.is_running():
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, coro)
+            return future.result()
+    else:
+        return loop.run_until_complete(coro)
+
+
+class Sentinel:
+    """The Sentinel Agent pre-flight security controller."""
+
+    _session: ClientSession | None = None
+    _workspace_entity_id: str = "WORKSPACE-1"
+    _agent_name_context: str = "Unknown Agent"
+
+    @classmethod
+    def set_context(
+        cls,
+        session: ClientSession | None,
+        workspace_entity_id: str,
+        agent_name: str = "Unknown Agent",
+    ) -> None:
+        """Set the active workspace security context."""
+        cls._session = session
+        cls._workspace_entity_id = workspace_entity_id
+        cls._agent_name_context = agent_name
+
+    @classmethod
+    def is_risky(cls, tool_name: str) -> bool:
+        """Classify if a tool is risky (requires fail-closed) or advisory."""
+        name = tool_name.lower()
+        if "search" in name:
+            return False
+        # Per requirements: training, egress, file writes are risky
+        if "train" in name:
+            return True
+        if "fetch" in name or "egress" in name or "web" in name:
+            return True
+        if "write" in name or "save" in name:
+            return True
+        if "execute" in name or "run" in name or "code" in name:
+            return True
+        return False
+
+    @classmethod
+    async def preflight(
+        cls,
+        session: ClientSession | None = None,
+        workspace_entity_id: str | None = None,
+        tool_name: str | None = None,
+        agent_name: str | None = None,
+    ) -> Verdict:
+        """Compute ALLOW / WARN / HALT for the next tool call."""
+        sess = session if session is not None else cls._session
+        ws_id = workspace_entity_id if workspace_entity_id is not None else cls._workspace_entity_id
+        tool = tool_name or "unknown_tool"
+        agent = agent_name if agent_name is not None else cls._agent_name_context
+
+        input_problems: list[dict[str, Any]] = []
+        rule_fired = "DEFAULT_ALLOW"
+        decision = Verdict.ALLOW
+
+        mcp_reachable = sess is not None
+
+        if mcp_reachable:
+            try:
+                # 1) Check active open problems
+                problems = await list_open_problems(sess, ws_id)
+                halt_problems = [p for p in problems if p.get("severity") in _HALT_SEVERITIES]
+
+                if halt_problems:
+                    decision = Verdict.HALT
+                    rule_fired = "ACTIVE_PROBLEM_HALT"
+                    input_problems = halt_problems
+                else:
+                    # 2) Check custom sentinelds events
+                    rows = await run_dql(sess, _sentinel_event_dql(ws_id))
+                    if rows:
+                        input_problems = rows
+                        if any(r.get("severity") == "high" for r in rows):
+                            decision = Verdict.HALT
+                            rule_fired = "CUSTOM_EVENT_HALT"
+                        else:
+                            decision = Verdict.WARN
+                            rule_fired = "CUSTOM_EVENT_WARN"
+                    else:
+                        decision = Verdict.ALLOW
+                        rule_fired = "DEFAULT_ALLOW"
+            except Exception as e:
+                # Log warning but treat as unreachable to activate fail-closed/open policy
+                logger.warning(f"Error querying Dynatrace MCP during pre-flight: {e}")
+                mcp_reachable = False
+
+        if not mcp_reachable:
+            # Apply fail-closed / fail-open based on tool risk
+            input_problems = [{"error": "MCP_UNREACHABLE"}]
+            if cls.is_risky(tool):
+                decision = Verdict.HALT
+                rule_fired = "MCP_UNREACHABLE_FAIL_CLOSED"
+            else:
+                decision = Verdict.WARN
+                rule_fired = "MCP_UNREACHABLE_FAIL_OPEN"
+
+        # Write the structured decision log
+        log_payload = {
+            "workspace": ws_id,
+            "agent": agent,
+            "tool": tool,
+            "input_problems": input_problems,
+            "rule_fired": rule_fired,
+            "decision": decision.value,
+        }
+        structured_log_line = json.dumps(log_payload)
+        logger.info(structured_log_line)
+        print(f"[Sentinel Preflight] {structured_log_line}", file=sys.stderr)
+
+        return decision
+
+
 async def preflight(session: ClientSession, workspace_entity_id: str) -> Verdict:
-    """Compute ALLOW / WARN / HALT for the next risky tool call.
+    """Legacy pre-flight function for backwards compatibility."""
+    return await Sentinel.preflight(session=session, workspace_entity_id=workspace_entity_id)
 
-    The Sentinel Agent owns the ``ClientSession`` (one per workspace, opened
-    at startup via :func:`src.sentinel.dynatrace_mcp.dynatrace_session`) and
-    passes it in for every call.
-    """
-    problems = await list_open_problems(session, workspace_entity_id)
-    if any(p.get("severity") in _HALT_SEVERITIES for p in problems):
-        return Verdict.HALT
 
-    rows = await run_dql(session, _sentinel_event_dql(workspace_entity_id))
-    if any(r.get("severity") == "high" for r in rows):
-        return Verdict.HALT
-    if rows:
-        return Verdict.WARN
-    return Verdict.ALLOW
+def sentinel_guard(tool_name: str) -> Any:
+    """Decorator to enforce Sentinel pre-flight checks before tool execution."""
+
+    def decorator(func: Any) -> Any:
+        """Helper to apply the pre-flight gate to the decorated function."""
+        if inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                """Asynchronous wrapper that runs Sentinel pre-flight before execution."""
+                verdict = await Sentinel.preflight(tool_name=tool_name)
+                if verdict == Verdict.HALT:
+                    raise PermissionError(
+                        f"Sentinel halted execution of tool '{tool_name}' due to active security risk."
+                    )
+                return await func(*args, **kwargs)
+
+            return async_wrapper
+        else:
+
+            @functools.wraps(func)
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                """Synchronous wrapper that runs Sentinel pre-flight before execution."""
+                verdict = run_async_in_sync(Sentinel.preflight(tool_name=tool_name))
+                if verdict == Verdict.HALT:
+                    raise PermissionError(
+                        f"Sentinel halted execution of tool '{tool_name}' due to active security risk."
+                    )
+                return func(*args, **kwargs)
+
+            return sync_wrapper
+
+    return decorator
