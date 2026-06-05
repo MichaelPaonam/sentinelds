@@ -7,7 +7,7 @@ name = "sentinelds"
 version = "0.1.0"
 description = "An agentic data-science workspace defended by Dynatrace."
 readme = "README.md"
-requires-python = "==3.12.10"
+requires-python = ">=3.12.10"
 dependencies = [
     "google-adk>=1.28.1",
     "google-genai>=1.75.0",
