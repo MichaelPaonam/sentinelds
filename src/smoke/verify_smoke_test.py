@@ -1,7 +1,6 @@
 """Smoke test for verifying Vertex AI connection and credentials."""
-from dotenv import load_dotenv
-import os
 
+from dotenv import load_dotenv
 from google import genai
 
 from src.core.config import settings
