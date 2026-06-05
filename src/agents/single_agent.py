@@ -68,7 +68,6 @@ agent = Agent(
 )
 
 runner = InMemoryRunner(agent=agent)
-runner.auto_create_session = True
 
 if __name__ == "__main__":
     print("--- Activating Agent Execution Loop ---")
