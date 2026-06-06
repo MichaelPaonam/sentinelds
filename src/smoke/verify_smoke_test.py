@@ -3,7 +3,7 @@
 from dotenv import load_dotenv
 from google import genai
 
-from src.core.config import settings
+from core.config import settings
 
 load_dotenv()
 

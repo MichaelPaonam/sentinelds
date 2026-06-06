@@ -12,7 +12,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from src.core.config import settings
+from core.config import settings
 
 # 1. Define the service name exactly how it will appear in Dynatrace
 resource = Resource.create(attributes={"service.name": "python-smoke-tester"})

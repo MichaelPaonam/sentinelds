@@ -22,7 +22,7 @@ from google.genai import types as genai_types
 from pydantic import BaseModel, Field, PrivateAttr
 
 # Local prompt imports
-from src.agents.sub_agents.research_agent.prompt import (
+from agents.sub_agents.research_agent.prompt import (
     ENHANCED_SEARCH_EXECUTOR_INSTRUCTION,
     PLAN_GENERATOR_INSTRUCTION,
     REPORT_COMPOSER_INSTRUCTION,
@@ -32,8 +32,8 @@ from src.agents.sub_agents.research_agent.prompt import (
 )
 
 # Local tool imports
-from src.tools.dataset_discovery import discover_datasets, suggest_ml_approaches
-from src.tools.web_fetch import fetch_url
+from tools.dataset_discovery import discover_datasets, suggest_ml_approaches
+from tools.web_fetch import fetch_url
 
 google_search = GoogleSearchTool(bypass_multi_tools_limit=True)
 

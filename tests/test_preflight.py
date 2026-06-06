@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mcp import ClientSession
 
-from src.sentinel.preflight import Sentinel, Verdict, sentinel_guard
+from sentinel.preflight import Sentinel, Verdict, sentinel_guard
 
 
 class TestSentinelToolClassification(unittest.TestCase):
