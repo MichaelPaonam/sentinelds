@@ -5,15 +5,24 @@ from google.adk.agents.llm_agent import Agent
 from agents.sub_agents.research_agent import (
     agent as research_agent_module,
 )
+from agents.sub_agents.feature_agent import (
+    agent as feature_agent_module,
+)
 
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
-    sub_agents=[research_agent_module.research_agent],
-    description="Data Science Agent",
-    instruction="You are a Data Science Agent. \
-    You will be given a task and you will need to break it down \
-    into smaller sub-tasks and assign them to the research sub-agent.\
-    You should also be able to ask follow-up questions to the user \
-    if you need more information to complete the task.",
+    sub_agents=[
+        research_agent_module.research_agent,
+        feature_agent_module.feature_agent,
+    ],
+    description="Data Science Agent Team Coordinator",
+    instruction=(
+        "You are the Data Science Lead Agent. You receive high-level data science tasks "
+        "and coordinate execution by breaking them down and delegating them to your specialized sub-agents:\n"
+        "1. Delegate domain research, background literature reviews, and finding public datasets to the 'research_agent'.\n"
+        "2. Delegate data ingestion, profiling, feature scaling, normalization, and feature preparation to the 'feature_agent'.\n\n"
+        "Coordinate their execution sequentially to prepare and clean the data for downstream training. "
+        "Ask the user clarifying questions if any specifications are missing."
+    ),
 )
