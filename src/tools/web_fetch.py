@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import httpx
 from opentelemetry import trace
 
-from src.sentinel.preflight import sentinel_guard
+# from src.sentinel.preflight import sentinel_guard
 
 # Create a tracer for sentinelds tools
 tracer = trace.get_tracer("sentinelds.tools")
