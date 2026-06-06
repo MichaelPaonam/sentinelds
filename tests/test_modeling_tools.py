@@ -193,5 +193,200 @@ class TestModelingToolsFunctionality(unittest.TestCase):
             self.assertEqual(f.read(), report_content)
 
 
+class TestModelingAdvancedFeatures(unittest.TestCase):
+    "Verify correctness of advanced modeling features and pipeline integrations."
+
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.csv_path = os.path.join(self.temp_dir.name, "synthetic_imbalanced.csv")
+        self.target_col = "label"
+
+        # Generate imbalanced dataset: 80% class 0, 20% class 1
+        np.random.seed(42)
+        n_samples = 100
+        n_class_0 = 80
+        n_class_1 = 20
+
+        X = np.random.normal(0, 1, size=(n_samples, 6))
+        y = np.concatenate([np.zeros(n_class_0), np.ones(n_class_1)])
+
+        df = pd.DataFrame(X, columns=[f"feat_{i}" for i in range(6)])
+        df[self.target_col] = y.astype(int)
+        df = df.sample(frac=1.0, random_state=42).reset_index(drop=True)
+        df.to_csv(self.csv_path, index=False)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_handle_imbalance(self) -> None:
+        "Verifies random over-sampling correctly balances classes."
+        from tools.modeling_tools import handle_imbalance
+
+        df = pd.read_csv(self.csv_path)
+        X = df.drop(columns=[self.target_col])
+        y = df[self.target_col]
+
+        self.assertEqual(y.value_counts().to_dict(), {0: 80, 1: 20})
+
+        X_bal, y_balanced = handle_imbalance(X, y)
+        self.assertEqual(y_balanced.value_counts().to_dict(), {0: 80, 1: 80})
+        self.assertEqual(len(X_bal), 160)
+
+    def test_build_pipeline_estimator(self) -> None:
+        "Verifies that the constructed Pipeline has the required components."
+        from sklearn.ensemble import RandomForestClassifier
+
+        from tools.modeling_tools import build_pipeline_estimator
+
+        clf = RandomForestClassifier()
+        pipe = build_pipeline_estimator(
+            clf, pca=True, feature_selection=True, k_features=3, n_features_available=6
+        )
+
+        self.assertIn("select", pipe.named_steps)
+        self.assertIn("pca", pipe.named_steps)
+        self.assertIn("classifier", pipe.named_steps)
+
+    def test_optimize_threshold_and_metrics(self) -> None:
+        "Verifies threshold optimization successfully maximizes F1."
+        from tools.modeling_tools import optimize_threshold_and_metrics
+
+        y_true = np.array([0, 0, 0, 1, 1, 1])
+        y_prob = np.array([0.1, 0.2, 0.4, 0.45, 0.9, 0.95])
+
+        thresh, acc, f1, prec, rec = optimize_threshold_and_metrics(y_true, y_prob)
+
+        self.assertTrue(0.4 <= thresh <= 0.45)
+        self.assertEqual(f1, 1.0)
+        self.assertEqual(acc, 1.0)
+
+    def test_make_ascii_curve(self) -> None:
+        "Verifies ASCII curve plotting outputs structured non-empty text."
+        from tools.modeling_tools import make_ascii_curve
+
+        curve_str = make_ascii_curve([0.0, 0.5, 1.0], [0.0, 0.5, 1.0], "Test Curve")
+        self.assertIn("Test Curve", curve_str)
+        self.assertIn("┌", curve_str)
+        self.assertIn("┘", curve_str)
+
+    def test_get_feature_explanations(self) -> None:
+        "Verifies explainability helper outputs valid importances and fallback info."
+        from xgboost import XGBClassifier
+
+        from tools.modeling_tools import get_feature_explanations
+
+        clf = XGBClassifier()
+        df = pd.read_csv(self.csv_path)
+        X = df.drop(columns=[self.target_col])
+        y = df[self.target_col]
+
+        clf.fit(X, y)
+        explanations = get_feature_explanations(clf, X, list(X.columns))
+
+        self.assertIn("importance", explanations)
+        self.assertIn("method", explanations)
+        self.assertTrue(len(explanations["importance"]) > 0)
+
+    def test_train_xgboost_advanced(self) -> None:
+        "Verifies training with all advanced options (tuning, pca, select, calibrate) works."
+        from tools.modeling_tools import train_xgboost
+
+        out_path = os.path.join(self.temp_dir.name, "adv_xgb.joblib")
+        res = train_xgboost(
+            self.csv_path,
+            self.target_col,
+            out_path,
+            tune=True,
+            pca=True,
+            feature_selection=True,
+            calibrate=True,
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(res["tuned"])
+        self.assertTrue(res["pca_enabled"])
+        self.assertTrue(res["feature_selection_enabled"])
+        self.assertTrue(res["calibrated"])
+        self.assertTrue(os.path.exists(out_path))
+
+        # Check loaded estimator
+        model = joblib.load(out_path)
+        self.assertTrue(hasattr(model, "predict_proba"))
+
+    def test_train_catboost_advanced(self) -> None:
+        "Verifies training with all advanced options for CatBoost works."
+        from tools.modeling_tools import train_catboost
+
+        out_path = os.path.join(self.temp_dir.name, "adv_cat.joblib")
+        res = train_catboost(
+            self.csv_path,
+            self.target_col,
+            out_path,
+            tune=True,
+            pca=True,
+            feature_selection=True,
+            calibrate=True,
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(res["tuned"])
+        self.assertTrue(res["pca_enabled"])
+        self.assertTrue(res["feature_selection_enabled"])
+        self.assertTrue(res["calibrated"])
+        self.assertTrue(os.path.exists(out_path))
+
+        # Check loaded estimator
+        model = joblib.load(out_path)
+        self.assertTrue(hasattr(model, "predict_proba"))
+
+    def test_evaluate_holdout_advanced(self) -> None:
+        "Verifies advanced holdout evaluation contains new outputs."
+        from tools.modeling_tools import evaluate_holdout, train_xgboost
+
+        xgb_path = os.path.join(self.temp_dir.name, "adv_xgb.joblib")
+        train_xgboost(
+            self.csv_path,
+            self.target_col,
+            xgb_path,
+            tune=True,
+            pca=True,
+            feature_selection=True,
+            calibrate=True,
+        )
+
+        res = evaluate_holdout(self.csv_path, self.target_col, xgb_path)
+        self.assertEqual(res["status"], "success")
+        self.assertIn("optimal_threshold", res)
+        self.assertIn("roc_auc", res)
+        self.assertIn("pr_auc", res)
+        self.assertIn("ascii_roc", res)
+        self.assertIn("ascii_pr", res)
+        self.assertIn("explanations", res)
+
+    def test_evaluate_cv_advanced(self) -> None:
+        "Verifies advanced CV evaluation contains new outputs."
+        from tools.modeling_tools import evaluate_cv, train_xgboost
+
+        xgb_path = os.path.join(self.temp_dir.name, "adv_xgb.joblib")
+        train_xgboost(
+            self.csv_path,
+            self.target_col,
+            xgb_path,
+            tune=True,
+            pca=True,
+            feature_selection=True,
+            calibrate=True,
+        )
+
+        res = evaluate_cv(self.csv_path, self.target_col, xgb_path, n_splits=3)
+        self.assertEqual(res["status"], "success")
+        self.assertIn("optimal_threshold", res)
+        self.assertIn("roc_auc_mean", res)
+        self.assertIn("pr_auc_mean", res)
+        self.assertIn("ascii_roc", res)
+        self.assertIn("ascii_pr", res)
+        self.assertIn("explanations", res)
+
+
 if __name__ == "__main__":
     unittest.main()
