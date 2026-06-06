@@ -53,7 +53,7 @@ graph TD
 
     A_Res -->|tool: web_fetch| A_Sent
     A_Feat -->|tool: csv_read| A_Sent
-    A_Mod -->|tool: model_train| A_Sent
+    A_Mod -->|tool: train_xgboost| A_Sent
 ```
 
 ### Agent Roles & Toolsets
@@ -62,7 +62,7 @@ graph TD
 |---|---|---|---|
 | **Research Agent** | Conducts literature reviews, analyzes regulatory frameworks, and summarizes drowsiness biomarkers. | `fetch_url` (HTTP web fetch) | External Web $\rightarrow$ Agent Context |
 | **Data + Feature Engineering Agent** | Profiles drowsiness telemetry datasets, extracts features (Eye-Aspect Ratio, yawn counts), and registers statistics. | `csv_read`, `pandas_profile` | Local Filesystem $\rightarrow$ Workspace Pandas Dataframe |
-| **Modelling Agent** | Coordinates model training (CNN, LSTM), performs hyperparameter tuning, and evaluates accuracy metrics. | `model_train`, `scikit-learn`, `optuna` | Extracted Features $\rightarrow$ ML Model Registry |
+| **Modelling Agent** | Trains XGBoost and CatBoost candidates on engineered features, selects the winner on F1, and persists model artifacts and a markdown report. | `load_features`, `train_xgboost`, `train_catboost`, `evaluate_holdout`, `evaluate_cv`, `save_model`, `save_report` | Extracted Features $\rightarrow$ ML Model Registry / Workspace Artifacts |
 | **Sentinel Agent** | Serves as the pre-flight authorization supervisor. Intercepts risky tool calls and queries Dynatrace via MCP. | `list_problems`, `execute_dql` | Internal Security Policy $\rightarrow$ Tool Runtime Execution |
 
 ---
@@ -180,7 +180,7 @@ sequenceDiagram
   * A custom event `sentinelds.dataset.drift_candidate` is fired because the label proportion deviates drastically from the clean baseline.
   * Davis AI registers the drift and flags an active Problem on the workspace.
 * **Sentinel Defense**:
-  * The Feature Engineering Agent extracts the features, but when the Modelling Agent attempts to execute `model_train`, the pre-flight gate intercepts the call.
+  * The Feature Engineering Agent extracts the features, but when the Modelling Agent attempts to execute `train_xgboost` or `train_catboost`, the pre-flight gate intercepts the call.
   * Sentinel queries Dynatrace MCP, detects the active data-drift Problem, returns `Verdict.HALT`, and raises a `PermissionError`, stopping the model from being poisoned.
 
 ---

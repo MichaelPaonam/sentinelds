@@ -20,14 +20,14 @@ class TestWebFetchTool(unittest.TestCase):
 
         # Mock preflight check to keep the tool test green in isolation (avoid fail-closed)
         self.preflight_patcher = patch(
-            "src.sentinel.preflight.Sentinel.preflight", return_value=Verdict.ALLOW
+            "sentinel.preflight.Sentinel.preflight", return_value=Verdict.ALLOW
         )
         self.mock_preflight = self.preflight_patcher.start()
 
     def tearDown(self) -> None:
         self.preflight_patcher.stop()
 
-    @patch("src.tools.web_fetch.tracer")
+    @patch("tools.web_fetch.tracer")
     @patch("httpx.stream")
     def test_fetch_url_success(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:
         """Verifies successful URL fetching and span attribute registration."""
@@ -62,7 +62,7 @@ class TestWebFetchTool(unittest.TestCase):
         # Verify span status
         mock_span.set_status.assert_called_once_with(StatusCode.OK)
 
-    @patch("src.tools.web_fetch.tracer")
+    @patch("tools.web_fetch.tracer")
     @patch("httpx.stream")
     def test_fetch_url_http_error(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:
         """Verifies non-200 HTTP statuses record error status on the span."""
@@ -89,7 +89,7 @@ class TestWebFetchTool(unittest.TestCase):
         self.assertIn("404", str(calls[0][1].get("description", "")))
         mock_span.record_exception.assert_called_once()
 
-    @patch("src.tools.web_fetch.tracer")
+    @patch("tools.web_fetch.tracer")
     @patch("httpx.stream")
     def test_fetch_url_exceeds_size_limit(
         self, mock_stream: MagicMock, mock_tracer: MagicMock
