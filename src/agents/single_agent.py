@@ -4,11 +4,13 @@ This module sets up the Google ADK Research Agent, configures OpenTelemetry trac
 routed to Dynatrace, registers the fetch_url tool, and executes a baseline query.
 """
 
+import asyncio
 import os
 import sys
 
 from google.adk import Agent
-from google.adk.runners import InMemoryRunner
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 # Core OpenTelemetry Modules
@@ -20,9 +22,13 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import StatusCode
 
+from src.core.config import settings
 from src.tools.web_fetch import fetch_url
 
 AGENT_NAME = "Research Agent"
+# APP_NAME = "research_agent"
+USER_ID = "local_hackathon_user"
+SESSION_ID = "local_test_session_001"
 resource = Resource.create(
     attributes={"service.name": "sentinelds-agentic-workflow", "agent.name": AGENT_NAME}
 )
@@ -30,20 +36,16 @@ resource = Resource.create(
 provider = TracerProvider(resource=resource)
 trace.set_tracer_provider(provider)
 
-# Default: Point to your local laptop's OneAgent daemon
-endpoint = "http://localhost:14499/otlp/v1/traces"
-headers = {}
+if not settings.DYNATRACE_API_URL or not settings.DYNATRACE_API_TOKEN:
+    print("DYNATRACE_API_URL and DYNATRACE_API_TOKEN are required")
+    sys.exit(1)
 
-# Cloud Override: Automatically toggles to direct ingest if deployed to Google Agent Platform
-DYNATRACE_API_URL = os.environ.get("DYNATRACE_API_URL")
-DYNATRACE_API_TOKEN = os.environ.get("DYNATRACE_API_TOKEN")
+endpoint = f"{settings.DYNATRACE_API_URL.rstrip('/')}/api/v2/otlp/v1/traces"
+token = settings.DYNATRACE_API_TOKEN.get_secret_value()
 
-if DYNATRACE_API_URL:
-    base_url = DYNATRACE_API_URL.rstrip("/")
-    endpoint = f"{base_url}/otlp/v1/traces"
-
-if DYNATRACE_API_TOKEN:
-    headers["Authorization"] = f"Api-Token {DYNATRACE_API_TOKEN}"
+headers = {
+    "Authorization": f"Api-Token {token}",
+}
 
 # Build and register the execution tracer pipeline
 otlp_exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
@@ -59,7 +61,7 @@ GoogleGenAiSdkInstrumentor().instrument()
 
 agent = Agent(
     name="research_agent",
-    model="gemini-2.5-flash-lite",
+    model="gemini-2.5-flash",
     instruction=(
         "Be a short factual assistant. "
         "Use the fetch_url tool to fetch contents of URLs when requested."
@@ -67,9 +69,18 @@ agent = Agent(
     tools=[fetch_url],
 )
 
-runner = InMemoryRunner(agent=agent)
+session_service = InMemorySessionService()
 
-if __name__ == "__main__":
+runner = Runner(
+    agent=agent,
+    app_name=AGENT_NAME,
+    session_service=session_service,
+)
+
+# runner = InMemoryRunner(agent=agent)
+
+
+async def main():
     print("--- Activating Agent Execution Loop ---")
 
     # Grab the active application context tracer
@@ -87,9 +98,15 @@ if __name__ == "__main__":
                 ]
             )
 
+            _ = await session_service.create_session(
+                app_name=AGENT_NAME,
+                user_id=USER_ID,
+                session_id=SESSION_ID,
+            )
+
             event_stream = runner.run(
-                user_id="local_hackathon_user",
-                session_id="local_test_session_001",
+                user_id=USER_ID,
+                session_id=SESSION_ID,
                 new_message=prompt_content,
             )
 
@@ -123,3 +140,7 @@ if __name__ == "__main__":
         finally:
             print("Flushing spans directly to telemetry sink...")
             provider.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
