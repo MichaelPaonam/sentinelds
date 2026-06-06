@@ -66,7 +66,7 @@ GoogleGenAiSdkInstrumentor().instrument()
 
 agent = Agent(
     name="research_agent",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     instruction=(
         "Be a short factual assistant. "
         "Use the fetch_url tool to fetch contents of URLs when requested."

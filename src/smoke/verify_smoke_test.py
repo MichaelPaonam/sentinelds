@@ -29,13 +29,13 @@ def test_vertex_ai_connection():
 
         # values from .env will automatically configure the client for Vertex AI
         # if GOOGLE_GENAI_USE_VERTEXAI is set to "true"
-        client = genai.Client()
+        client = genai.Client(vertexai=True)
 
-        print("🚀 Sending smoke test prompt to gemini-2.5-flash...")
+        print("🚀 Sending smoke test prompt to gemini-2.5-flash-lite...")
 
         # 3. Execute a single, low-latency call
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents='Respond with exactly three words: "Connection is successful."',
         )
 
