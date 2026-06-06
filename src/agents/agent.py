@@ -5,9 +5,7 @@ from google.adk.agents.llm_agent import Agent
 from agents.sub_agents.feature_agent import (
     agent as feature_agent_module,
 )
-from agents.sub_agents.modeling_agent import (
-    agent as modeling_agent_module
-)
+from agents.sub_agents.modeling_agent import agent as modeling_agent_module
 from agents.sub_agents.research_agent import (
     agent as research_agent_module,
 )
