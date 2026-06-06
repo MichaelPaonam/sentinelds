@@ -136,6 +136,17 @@ source .venv/bin/activate            # macOS/Linux
 uv sync
 ```
 
+### Multi-platform OpenMP Dependencies
+The **Modelling Agent** uses `xgboost`, which relies on the OpenMP runtime to run. Depending on your operating system, follow the instructions below:
+
+- **macOS (Intel/Apple Silicon)**: Run `brew install libomp` to install the OpenMP library. This is required because Mac wheels do not bundle it by default.
+- **Ubuntu/Linux**: No manual installation is typically needed as `libgomp1` is pre-installed on most distributions. If you encounter any issues, install it with:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y libgomp1
+  ```
+- **Windows**: The required DLL is bundled with standard Windows wheels. If you see runtime errors, make sure you have the [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist) installed.
+
+
 ### Required environment variables
 
 Copy `.env.example` to `.env` and fill in:
