@@ -5,6 +5,8 @@ from google import genai
 
 from src.core.config import settings
 
+load_dotenv()
+
 
 def test_vertex_ai_connection():
     """Verify the connection to Vertex AI using Google GenAI SDK."""
@@ -53,5 +55,4 @@ def test_vertex_ai_connection():
 
 
 if __name__ == "__main__":
-    load_dotenv()  # Load environment variables from .env file
     test_vertex_ai_connection()
