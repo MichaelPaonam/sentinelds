@@ -8,6 +8,7 @@ import asyncio
 import os
 import sys
 
+from dotenv import load_dotenv
 from google.adk import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -143,4 +144,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    load_dotenv()
     asyncio.run(main())
