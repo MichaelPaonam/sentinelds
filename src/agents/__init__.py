@@ -1,2 +1,1 @@
-# SentinelDS Agents Package (Research Agent, Feature Engineering Agent,
-# Modelling Agent, Sentinel Agent)
+# root_agent (sequential_agent(research_agent, feature_agent, modelling_agent))
