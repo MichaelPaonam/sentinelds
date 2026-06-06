@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export import (
     SimpleSpanProcessor,
 )
 
-from src.core.config import settings
+from core.config import settings
 
 # Enable verbose logging
 logging.basicConfig(level=logging.DEBUG)

@@ -3,7 +3,7 @@
 from dotenv import load_dotenv
 from google import genai
 
-from src.core.config import settings
+from core.config import settings
 
 load_dotenv()
 
@@ -29,7 +29,7 @@ def test_vertex_ai_connection():
 
         # values from .env will automatically configure the client for Vertex AI
         # if GOOGLE_GENAI_USE_VERTEXAI is set to "true"
-        client = genai.Client()
+        client = genai.Client(vertexai=True)
 
         print("🚀 Sending smoke test prompt to gemini-2.5-flash...")
 

@@ -25,8 +25,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import StatusCode
 
-from src.core.config import settings
-from src.tools.web_fetch import fetch_url
+from core.config import settings
+from tools.web_fetch import fetch_url
 
 load_dotenv()
 

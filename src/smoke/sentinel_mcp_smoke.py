@@ -33,7 +33,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from src.sentinel.dynatrace_mcp import (
+from sentinel.dynatrace_mcp import (
     DynatraceMCPConfig,
     dynatrace_session,
     list_open_problems,

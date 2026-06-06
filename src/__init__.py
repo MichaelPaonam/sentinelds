@@ -1,1 +1,0 @@
-# SentinelDS source package

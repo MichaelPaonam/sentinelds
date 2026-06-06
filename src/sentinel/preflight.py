@@ -22,7 +22,7 @@ from typing import Any
 
 from mcp import ClientSession
 
-from src.sentinel.dynatrace_mcp import list_open_problems, run_dql
+from sentinel.dynatrace_mcp import list_open_problems, run_dql
 
 logger = logging.getLogger("sentinel.preflight")
 

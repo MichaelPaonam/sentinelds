@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mcp.types import CallToolResult, ImageContent, TextContent
 
-from src.sentinel.dynatrace_mcp import (
+from sentinel.dynatrace_mcp import (
     DynatraceMCPConfig,
     _parse_text_content,
     _server_params,

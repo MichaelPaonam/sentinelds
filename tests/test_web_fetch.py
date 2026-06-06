@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 from opentelemetry.trace import StatusCode
 
-from src.sentinel.preflight import Verdict
-from src.tools.web_fetch import fetch_url
+from sentinel.preflight import Verdict
+from tools.web_fetch import fetch_url
 
 
 class TestWebFetchTool(unittest.TestCase):
