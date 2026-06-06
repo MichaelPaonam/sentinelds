@@ -67,7 +67,10 @@ async def run_standalone(features_csv: str, target_col: str) -> None:
         session_id=session_id,
     )
 
-    prompt = f"Please train models on features CSV '{features_csv}' with target column '{target_col}' and save the winner and report."
+    prompt = (
+        f"Please train models on features CSV '{features_csv}' "
+        f"with target column '{target_col}' and save the winner and report."
+    )
     prompt_content = Content(parts=[Part.from_text(text=prompt)])
 
     event_stream = runner.run(

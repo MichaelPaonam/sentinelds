@@ -25,7 +25,9 @@ MODELS_DIR = "models"
 
 
 def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
-    """Reads CSV, asserts target exists, returns shape, feature names, class balance, and a recommended strategy hint.
+    """Reads CSV, asserts target exists, and returns shape, feature names,
+
+    class balance, and a recommended strategy hint.
 
     Args:
         csv_path: Path to the CSV file.
@@ -191,7 +193,7 @@ def evaluate_holdout(
     test_size: float = 0.2,
     random_state: int = 42,
 ) -> dict[str, Any]:
-    """Loads a saved model from path, clones and refits it on train split, and evaluates on holdout test set.
+    """Loads a saved model, clones and refits on train split, and evaluates on holdout.
 
     Args:
         csv_path: Path to the CSV file.
@@ -250,7 +252,7 @@ def evaluate_cv(
     n_splits: int = 5,
     random_state: int = 42,
 ) -> dict[str, Any]:
-    """Loads saved model, clones it, runs StratifiedKFold CV, and returns average and std per metric.
+    """Loads saved model, clones it, runs StratifiedKFold CV, and returns average/std metrics.
 
     Args:
         csv_path: Path to the CSV file.
