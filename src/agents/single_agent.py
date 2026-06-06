@@ -97,7 +97,7 @@ async def main():
                 ]
             )
 
-            session = await session_service.create_session(
+            _ = await session_service.create_session(
                 app_name=AGENT_NAME,
                 user_id=USER_ID,
                 session_id=SESSION_ID,
