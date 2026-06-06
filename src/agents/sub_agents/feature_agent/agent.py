@@ -9,13 +9,14 @@ Structure:
 from __future__ import annotations
 
 import logging
+
 from google.adk.agents import Agent, LlmAgent, SequentialAgent
 
 from agents.sub_agents.feature_agent.prompt import (
     DATA_PROFILER_INSTRUCTION,
     FEATURE_ENGINEER_INSTRUCTION,
 )
-from tools.feature_tools import csv_read, pandas_profile, save_features
+from tools.feature_tools import csv_read, find_files, pandas_profile, save_features
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
@@ -31,7 +32,7 @@ dataset_profiler = LlmAgent(
     name="dataset_profiler",
     description="Profiles raw datasets to analyze structures, missing values, and distributions.",
     instruction=DATA_PROFILER_INSTRUCTION,
-    tools=[csv_read, pandas_profile],
+    tools=[csv_read, pandas_profile, find_files],
     output_key="dataset_profile_report",
 )
 

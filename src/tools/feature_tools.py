@@ -1,7 +1,9 @@
 """Feature engineering and data analysis tools for the Feature Engineering Agent."""
 
+import glob
 import os
-from typing import Any, Union, Dict, List
+from typing import Any, Dict, List, Union
+
 import pandas as pd
 
 
@@ -23,7 +25,7 @@ def csv_read(filepath: str) -> dict[str, Any]:
             }
 
         df = pd.read_csv(filepath)
-        
+
         # Prepare serializable types
         dtypes_dict = {col: str(dtype) for col, dtype in df.dtypes.items()}
         head_list = df.head(5).to_dict(orient="records")
@@ -89,10 +91,7 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
             dist = {}
             for val, cnt in counts.items():
                 proportion = float(cnt / total) if total > 0 else 0.0
-                dist[str(val)] = {
-                    "count": int(cnt),
-                    "proportion": proportion
-                }
+                dist[str(val)] = {"count": int(cnt), "proportion": proportion}
             categorical_summary[col] = dist
 
         return {
@@ -132,3 +131,67 @@ def save_features(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filep
         return f"Successfully saved {df.shape[0]} rows and {df.shape[1]} features to {filepath}"
     except Exception as e:
         raise RuntimeError(f"Failed to save features: {str(e)}")
+
+
+def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
+    """Looks into a directory and finds files of a particular type or pattern.
+
+    Args:
+        directory: Path to the directory to search.
+        extension: The file extension (e.g., 'csv', '.csv') or a pattern to match (e.g., '*').
+
+    Returns:
+        A dictionary containing the status and a list of found files with their details
+        (name, absolute path, size in bytes, and modification time).
+    """
+    try:
+        if not os.path.exists(directory):
+            return {
+                "status": "error",
+                "error": f"Directory not found: {directory}",
+            }
+        if not os.path.isdir(directory):
+            return {
+                "status": "error",
+                "error": f"Path is not a directory: {directory}",
+            }
+
+        # Normalize extension
+        ext = extension.strip()
+        if ext == "*":
+            pattern = "*"
+        elif ext.startswith("*."):
+            pattern = ext
+        elif ext.startswith("."):
+            pattern = f"*{ext}"
+        else:
+            pattern = f"*.{ext}"
+
+        search_pattern = os.path.join(directory, pattern)
+        matched_paths = glob.glob(search_pattern)
+
+        files_list = []
+        for path in sorted(matched_paths):
+            if os.path.isfile(path):
+                stat = os.stat(path)
+                files_list.append(
+                    {
+                        "name": os.path.basename(path),
+                        "path": os.path.abspath(path),
+                        "size_bytes": stat.st_size,
+                        "modified_time": stat.st_mtime,
+                    }
+                )
+
+        return {
+            "status": "success",
+            "directory": os.path.abspath(directory),
+            "pattern": pattern,
+            "count": len(files_list),
+            "files": files_list,
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to search directory: {str(e)}",
+        }
