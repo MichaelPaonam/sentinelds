@@ -6,11 +6,12 @@ import argparse
 import asyncio
 import logging
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import Agent, LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
+from agents.sub_agents import research_agent
 from agents.sub_agents.modeling_agent.prompt import MODELING_AGENT_INSTRUCTION
 from tools.modeling_tools import (
     evaluate_cv,
@@ -95,6 +96,12 @@ async def run_standalone(features_csv: str, target_col: str) -> None:
             full_response += str(event.text)
 
     print(f"\n[Agent Output]:\n{full_response.strip()}\n")
+
+root_agent = Agent(
+    model="gemini-2.5-flash",
+    name="root_agent",
+    sub_agents=[modeling_agent],
+)
 
 
 if __name__ == "__main__":
