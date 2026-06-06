@@ -31,7 +31,7 @@ import logging
 import re
 from typing import Any
 
-from google.adk.agents import LlmAgent, LoopAgent, SequentialAgent
+from google.adk.agents import Agent, LlmAgent, LoopAgent, SequentialAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.planners import BuiltInPlanner
 from google.adk.tools.exit_loop_tool import exit_loop
@@ -288,4 +288,10 @@ research_agent = SequentialAgent(
         plan_generator,
         research_pipeline,
     ],
+)
+
+root_agent = Agent(
+    model='gemini-2.5-flash',
+    name='root_agent',
+    sub_agents=[research_agent],
 )
