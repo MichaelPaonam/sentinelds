@@ -26,6 +26,8 @@ from opentelemetry.trace import StatusCode
 from src.core.config import settings
 from src.tools.web_fetch import fetch_url
 
+load_dotenv()
+
 AGENT_NAME = "Research Agent"
 # APP_NAME = "research_agent"
 USER_ID = "local_hackathon_user"
@@ -144,5 +146,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    load_dotenv()
     asyncio.run(main())
