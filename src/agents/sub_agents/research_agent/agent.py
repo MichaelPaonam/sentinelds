@@ -29,7 +29,6 @@ from __future__ import annotations
 import datetime
 import logging
 import re
-from typing import Any
 
 from google.adk.agents import Agent, LlmAgent, LoopAgent, SequentialAgent
 from google.adk.agents.callback_context import CallbackContext
@@ -49,7 +48,7 @@ from agents.sub_agents.research_agent.prompt import (
     SECTION_RESEARCHER_INSTRUCTION,
     URL_FETCHER_INSTRUCTION,
 )
-from tools.dataset_discovery import discover_datasets, suggest_ml_approaches
+from tools.dataset_discovery import discover_datasets
 from tools.web_fetch import fetch_url
 
 google_search = GoogleSearchTool(bypass_multi_tools_limit=True)
@@ -64,13 +63,16 @@ THINKING_MODEL = "gemini-2.5-flash"  # supports BuiltInPlanner with include_thou
 # Structured output schema for the evaluator
 # ---------------------------------------------------------------------------
 
+
 class SearchQuery(BaseModel):
     search_query: str = Field(description="A highly specific and targeted query for web search.")
 
 
 class Feedback(BaseModel):
     grade: str = Field(description="'pass' if research is sufficient, 'fail' if it needs revision.")
-    comment: str = Field(description="Detailed evaluation highlighting strengths and/or weaknesses.")
+    comment: str = Field(
+        description="Detailed evaluation highlighting strengths and/or weaknesses."
+    )
     follow_up_queries: list[SearchQuery] | None = Field(
         default=None,
         description="Follow-up queries to fix gaps. Null or empty when grade is 'pass'.",
@@ -80,6 +82,7 @@ class Feedback(BaseModel):
 # ---------------------------------------------------------------------------
 # After-agent callbacks
 # ---------------------------------------------------------------------------
+
 
 def collect_research_sources_callback(callback_context: CallbackContext) -> None:
     """Accumulates grounding sources from search events into session state."""
@@ -291,7 +294,7 @@ research_agent = SequentialAgent(
 )
 
 root_agent = Agent(
-    model='gemini-2.5-flash',
-    name='root_agent',
+    model="gemini-2.5-flash",
+    name="root_agent",
     sub_agents=[research_agent],
 )
