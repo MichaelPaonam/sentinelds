@@ -6,7 +6,7 @@ from agents.sub_agents.research_agent import (
 )
 
 root_agent = Agent(
-    model='gemini-2.5-flash-lite',
+    model='gemini-2.5-flash',
     name='root_agent',
     sub_agents=[research_agent_module.research_agent],
     description='Data Science Agent',
