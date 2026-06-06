@@ -323,7 +323,7 @@ class ResearchAgent(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         logger.info(f"[{self.name}] Executing internal research pipeline workflow...")
         runner = InMemoryRunner(node=self._research_pipeline)
-        runner.session_service = ctx.session_service
+        runner.auto_create_session = True
         runner.artifact_service = ctx.artifact_service
         runner.memory_service = ctx.memory_service
         runner.credential_service = ctx.credential_service
