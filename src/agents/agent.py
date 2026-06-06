@@ -9,6 +9,10 @@ from agents.sub_agents.feature_agent import (
     agent as feature_agent_module,
 )
 
+# Clear parents to avoid duplicate parent validation error when composing under root_agent
+research_agent_module.research_agent.parent_agent = None
+feature_agent_module.feature_agent.parent_agent = None
+
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
