@@ -50,7 +50,7 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "   - Imputing missing values with appropriate statistics (median, mean, etc.).\n"
     "   - Creating composite features (e.g. eye-aspect ratio combinations).\n"
     "3. Assemble the processed data rows.\n"
-    "4. Use the `save_features` tool to write the engineered, clean features as a "
+    "4. Use the `make_csv_file` tool to write the engineered, clean features as a "
     "CSV to the specified destination path.\n"
     "5. Provide a summary of the engineered dataset, including the output path, "
     "total rows, number of features, and a list of all final columns.\n"

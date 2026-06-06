@@ -16,7 +16,8 @@ from agents.sub_agents.feature_agent.prompt import (
     DATA_PROFILER_INSTRUCTION,
     FEATURE_ENGINEER_INSTRUCTION,
 )
-from tools.feature_tools import csv_read, find_files, pandas_profile, save_features
+from tools.feature_tools import csv_read, find_files, pandas_profile
+from tools.file_creation_tools import make_csv_file
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
@@ -41,7 +42,7 @@ feature_transformer = LlmAgent(
     name="feature_transformer",
     description="Transforms, normalizes, scales features, and saves the clean dataset.",
     instruction=FEATURE_ENGINEER_INSTRUCTION,
-    tools=[save_features],
+    tools=[make_csv_file],
     output_key="feature_engineering_report",
 )
 
