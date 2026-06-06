@@ -5,8 +5,10 @@ routed to Dynatrace, registers the fetch_url tool, and executes a baseline query
 """
 
 import asyncio
+import hashlib
 import os
 import sys
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from google.adk import Agent
@@ -101,39 +103,54 @@ async def main():
                 ]
             )
 
-            _ = await session_service.create_session(
-                app_name=AGENT_NAME,
-                user_id=USER_ID,
-                session_id=SESSION_ID,
-            )
+            with tracer.start_as_current_span("LLMCompletion") as child_span:
+                try:
+                    _ = await session_service.create_session(
+                        app_name=AGENT_NAME,
+                        user_id=USER_ID,
+                        session_id=SESSION_ID,
+                    )
 
-            event_stream = runner.run(
-                user_id=USER_ID,
-                session_id=SESSION_ID,
-                new_message=prompt_content,
-            )
+                    event_stream = runner.run(
+                        user_id=USER_ID,
+                        session_id=SESSION_ID,
+                        new_message=prompt_content,
+                    )
 
-            full_text_response = ""
-            for event in event_stream:
-                # Check if this specific frame represents the final text response block
-                if hasattr(event, "is_final_response") and event.is_final_response():
-                    content = getattr(event, "content", None)
-                    if content is not None and getattr(content, "parts", None):
-                        full_text_response += "".join(
-                            [
-                                part.text
-                                for part in content.parts
-                                if part
-                                and getattr(part, "text", None)
-                                and isinstance(part.text, str)
-                            ]
-                        )
-                elif hasattr(event, "text") and event.text:
-                    full_text_response += str(event.text)
+                    full_text_response = ""
+                    for event in event_stream:
+                        # Check if this specific frame represents the final text response block
+                        if hasattr(event, "is_final_response") and event.is_final_response():
+                            content = getattr(event, "content", None)
+                            if content is not None and getattr(content, "parts", None):
+                                full_text_response += "".join(
+                                    [
+                                        part.text
+                                        for part in content.parts
+                                        if part
+                                        and getattr(part, "text", None)
+                                        and isinstance(part.text, str)
+                                    ]
+                                )
+                        elif hasattr(event, "text") and event.text:
+                            full_text_response += str(event.text)
 
-            print(f"\n[Agent Output]: {full_text_response.strip()}\n")
+                    response_hash = hashlib.sha256(full_text_response.encode("utf-8")).hexdigest()
+                    host = urlparse(url).netloc
 
-            span.set_status(StatusCode.OK)
+                    child_span.set_attribute("tool.name", AGENT_NAME)
+                    child_span.set_attribute("response.body.hash", response_hash)
+                    child_span.set_attribute("egress.host", host)
+
+                    print(f"\n[Agent Output]: {full_text_response.strip()}\n")
+
+                    child_span.set_status(StatusCode.OK)
+                    span.set_status(StatusCode.OK)
+
+                except Exception as e:
+                    child_span.set_status(StatusCode.ERROR, description=str(e))
+                    child_span.record_exception(e)
+                    raise e
 
         except Exception as e:
             print(f"[ERROR] Run failed: {e}", file=sys.stderr)
