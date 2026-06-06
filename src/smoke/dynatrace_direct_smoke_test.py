@@ -23,7 +23,7 @@ if not settings.DYNATRACE_API_URL or not settings.DYNATRACE_API_TOKEN:
     print("DYNATRACE_API_URL and DYNATRACE_API_TOKEN are required")
     sys.exit(1)
 
-endpoint = f"{settings.DYNATRACE_API_URL}/api/v2/otlp/v1/traces"
+endpoint = f"{settings.DYNATRACE_API_URL.rstrip('/')}/api/v2/otlp/v1/traces"
 token = settings.DYNATRACE_API_TOKEN.get_secret_value()
 
 print(f"Endpoint: {endpoint}")
