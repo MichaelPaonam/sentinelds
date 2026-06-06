@@ -57,14 +57,10 @@ otlp_exporter = DebugOTLPExporter(
 )
 
 # Print span locally
-provider.add_span_processor(
-    SimpleSpanProcessor(ConsoleSpanExporter())
-)
+provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
 
 # Send span to Dynatrace
-provider.add_span_processor(
-    SimpleSpanProcessor(otlp_exporter)
-)
+provider.add_span_processor(SimpleSpanProcessor(otlp_exporter))
 
 tracer = trace.get_tracer(__name__)
 

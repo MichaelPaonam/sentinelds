@@ -79,6 +79,7 @@ runner = Runner(
 
 # runner = InMemoryRunner(agent=agent)
 
+
 async def main():
     print("--- Activating Agent Execution Loop ---")
 
@@ -139,6 +140,7 @@ async def main():
         finally:
             print("Flushing spans directly to telemetry sink...")
             provider.shutdown()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
