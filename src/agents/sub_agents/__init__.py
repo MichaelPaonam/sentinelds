@@ -1,5 +1,6 @@
 """Sub-agents module for the data science pipeline."""
 
-from src.agents.sub_agents.research_agent import ResearchAgent
+from .research_agent.agent import ResearchAgent, research_agent
 
-__all__ = ["ResearchAgent"]
+__all__ = ["ResearchAgent", "research_agent"]
+
