@@ -57,9 +57,9 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
 
         # Patch list_open_problems to return empty list, run_dql to return empty list
         with (
-            patch("src.sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
-            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=[])),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
+            patch("sentinel.preflight.run_dql", AsyncMock(return_value=[])),
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -93,11 +93,9 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
         ]
 
         with (
-            patch(
-                "src.sentinel.preflight.list_open_problems", AsyncMock(return_value=active_problems)
-            ),
-            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=[])),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.list_open_problems", AsyncMock(return_value=active_problems)),
+            patch("sentinel.preflight.run_dql", AsyncMock(return_value=[])),
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -124,9 +122,9 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
         ]
 
         with (
-            patch("src.sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
-            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=custom_events)),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
+            patch("sentinel.preflight.run_dql", AsyncMock(return_value=custom_events)),
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -153,9 +151,9 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
         ]
 
         with (
-            patch("src.sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
-            patch("src.sentinel.preflight.run_dql", AsyncMock(return_value=custom_events)),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.list_open_problems", AsyncMock(return_value=[])),
+            patch("sentinel.preflight.run_dql", AsyncMock(return_value=custom_events)),
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -177,10 +175,10 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
         # Simulate connection error
         with (
             patch(
-                "src.sentinel.preflight.list_open_problems",
+                "sentinel.preflight.list_open_problems",
                 AsyncMock(side_effect=RuntimeError("Connection refused")),
             ),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -202,10 +200,10 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
         # Simulate connection error
         with (
             patch(
-                "src.sentinel.preflight.list_open_problems",
+                "sentinel.preflight.list_open_problems",
                 AsyncMock(side_effect=RuntimeError("Connection refused")),
             ),
-            patch("src.sentinel.preflight.logger") as mock_logger,
+            patch("sentinel.preflight.logger") as mock_logger,
         ):
             verdict = await Sentinel.preflight(
                 session=session,
@@ -221,7 +219,7 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
 
     async def test_unconfigured_mcp_risky_tool_fail_closed(self) -> None:
         """If no session is configured (session=None), risky tools must fail-closed (HALT)."""
-        with patch("src.sentinel.preflight.logger") as mock_logger:
+        with patch("sentinel.preflight.logger") as mock_logger:
             verdict = await Sentinel.preflight(
                 session=None,
                 workspace_entity_id="WORKSPACE-TEST",
@@ -236,7 +234,7 @@ class TestSentinelPreflight(unittest.IsolatedAsyncioTestCase):
 
     async def test_unconfigured_mcp_advisory_tool_fail_open(self) -> None:
         """If no session is configured (session=None), advisory tools must fail-open (WARN)."""
-        with patch("src.sentinel.preflight.logger") as mock_logger:
+        with patch("sentinel.preflight.logger") as mock_logger:
             verdict = await Sentinel.preflight(
                 session=None,
                 workspace_entity_id="WORKSPACE-TEST",
@@ -267,9 +265,7 @@ class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
         async def async_tool() -> str:
             return "async success"
 
-        with patch(
-            "src.sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.ALLOW)
-        ):
+        with patch("sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.ALLOW)):
             self.assertEqual(sync_tool(), "sync success")
             self.assertEqual(await async_tool(), "async success")
 
@@ -284,9 +280,7 @@ class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
         async def async_tool() -> str:
             return "async success"
 
-        with patch(
-            "src.sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.WARN)
-        ):
+        with patch("sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.WARN)):
             self.assertEqual(sync_tool(), "sync success")
             self.assertEqual(await async_tool(), "async success")
 
@@ -310,9 +304,7 @@ class TestSentinelGuardDecorator(unittest.IsolatedAsyncioTestCase):
             async_called = True
             return "async success"
 
-        with patch(
-            "src.sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.HALT)
-        ):
+        with patch("sentinel.preflight.Sentinel.preflight", AsyncMock(return_value=Verdict.HALT)):
             with self.assertRaises(PermissionError):
                 sync_tool()
             with self.assertRaises(PermissionError):
