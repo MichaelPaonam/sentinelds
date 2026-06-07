@@ -5,15 +5,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from opentelemetry import trace
+
+from observability import current_span, traced_tool
 
 # from src.sentinel.preflight import sentinel_guard
 
-# Create a tracer for sentinelds tools
-tracer = trace.get_tracer("sentinelds.tools")
-
 
 # @sentinel_guard("web_fetch")
+@traced_tool("web_fetch")
 def fetch_url(url: str) -> dict[str, Any]:
     """Fetches the content of a specified URL.
 
@@ -30,49 +29,45 @@ def fetch_url(url: str) -> dict[str, Any]:
     parsed_url = urlparse(url)
     host = parsed_url.hostname or parsed_url.netloc or ""
 
-    with tracer.start_as_current_span("web_fetch") as span:
-        span.set_attribute("tool.name", "web_fetch")
-        span.set_attribute("tool.args.url", url)
-        span.set_attribute("http.url", url)
-        span.set_attribute("egress.host", host)
+    span = current_span()
+    span.set_attribute("http.url", url)
+    span.set_attribute("egress.host", host)
 
-        try:
-            if not url.startswith(("http://", "https://")):
-                raise ValueError(f"Invalid URL scheme. Only HTTP and HTTPS are supported: {url}")
+    try:
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"Invalid URL scheme. Only HTTP and HTTPS are supported: {url}")
 
-            timeout = httpx.Timeout(10.0)
-            max_bytes = 10 * 1024 * 1024  # 10 MB
+        timeout = httpx.Timeout(10.0)
+        max_bytes = 10 * 1024 * 1024  # 10 MB
 
-            with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
-                status_code = response.status_code
-                span.set_attribute("response.status_code", status_code)
+        with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+            status_code = response.status_code
+            span.set_attribute("response.status_code", status_code)
 
-                response.raise_for_status()
+            response.raise_for_status()
 
-                body_bytes = b""
-                for chunk in response.iter_bytes():
-                    body_bytes += chunk
-                    if len(body_bytes) > max_bytes:
-                        raise ValueError(
-                            f"Response content size exceeded maximum limit of {max_bytes} bytes."
-                        )
+            body_bytes = b""
+            for chunk in response.iter_bytes():
+                body_bytes += chunk
+                if len(body_bytes) > max_bytes:
+                    raise ValueError(
+                        f"Response content size exceeded maximum limit of {max_bytes} bytes."
+                    )
 
-                content_hash = hashlib.sha256(body_bytes).hexdigest()
-                span.set_attribute("response.size", len(body_bytes))
-                span.set_attribute("response.body.hash", content_hash)
+            content_hash = hashlib.sha256(body_bytes).hexdigest()
+            span.set_attribute("response.size", len(body_bytes))
+            span.set_attribute("response.body.hash", content_hash)
 
-                decoded_content = body_bytes.decode("utf-8", errors="replace")
+            decoded_content = body_bytes.decode("utf-8", errors="replace")
 
-                span.set_status(trace.StatusCode.OK)
-                return {
-                    "status": "success",
-                    "url": url,
-                    "content": decoded_content,
-                    "size": len(body_bytes),
-                    "sha256": content_hash,
-                }
+            return {
+                "status": "success",
+                "url": url,
+                "content": decoded_content,
+                "size": len(body_bytes),
+                "sha256": content_hash,
+            }
 
-        except Exception as e:
-            span.set_status(trace.StatusCode.ERROR, description=str(e))
-            span.record_exception(e)
-            return {"status": "error", "url": url, "message": str(e)}
+    except Exception as e:
+        span.record_exception(e)
+        return {"status": "error", "url": url, "message": str(e)}

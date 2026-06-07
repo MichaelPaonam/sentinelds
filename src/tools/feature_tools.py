@@ -6,7 +6,10 @@ from typing import Any, Dict, List, Union
 
 import pandas as pd
 
+from observability import current_span, traced_tool
 
+
+@traced_tool("csv_read")
 def csv_read(filepath: str) -> dict[str, Any]:
     """Reads a CSV file and returns its basic structure and a preview of rows.
 
@@ -17,6 +20,9 @@ def csv_read(filepath: str) -> dict[str, Any]:
         A dictionary containing the column names, shape (rows, cols), data types,
         and a preview of the first 5 rows (as a list of dicts).
     """
+    span = current_span()
+    span.set_attribute("dataset.uri", filepath)
+
     try:
         if not os.path.exists(filepath):
             return {
@@ -25,6 +31,9 @@ def csv_read(filepath: str) -> dict[str, Any]:
             }
 
         df = pd.read_csv(filepath)
+
+        span.set_attribute("dataset.rows", df.shape[0])
+        span.set_attribute("dataset.cols", df.shape[1])
 
         # Prepare serializable types
         dtypes_dict = {col: str(dtype) for col, dtype in df.dtypes.items()}
@@ -44,6 +53,7 @@ def csv_read(filepath: str) -> dict[str, Any]:
         }
 
 
+@traced_tool("pandas_profile")
 def pandas_profile(filepath: str) -> dict[str, Any]:
     """Profiles a CSV dataset to extract key statistical properties and check distributions.
 
@@ -54,6 +64,9 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
         A dictionary containing missing value counts, label distributions,
         numerical summaries (mean, std, min, max), and overall statistics.
     """
+    span = current_span()
+    span.set_attribute("dataset.uri", filepath)
+
     try:
         if not os.path.exists(filepath):
             return {
@@ -63,6 +76,10 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
 
         df = pd.read_csv(filepath)
         shape = list(df.shape)
+
+        span.set_attribute("dataset.rows", df.shape[0])
+        span.set_attribute("dataset.cols", df.shape[1])
+        span.set_attribute("dataset.missing.total", int(df.isnull().sum().sum()))
 
         # Missing values
         missing = df.isnull().sum().to_dict()
@@ -108,6 +125,7 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
         }
 
 
+@traced_tool("save_features")
 def save_features(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filepath: str) -> str:
     """Saves the engineered features to a CSV file.
 
@@ -118,6 +136,9 @@ def save_features(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filep
     Returns:
         A success message indicating the shape of the saved dataset.
     """
+    span = current_span()
+    span.set_attribute("dataset.uri", filepath)
+
     try:
         # Create parent directories if they don't exist
         dir_name = os.path.dirname(filepath)
@@ -128,11 +149,15 @@ def save_features(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filep
         df = pd.DataFrame(data)
         df.to_csv(filepath, index=False)
 
+        span.set_attribute("dataset.rows", df.shape[0])
+        span.set_attribute("dataset.cols", df.shape[1])
+
         return f"Successfully saved {df.shape[0]} rows and {df.shape[1]} features to {filepath}"
     except Exception as e:
         raise RuntimeError(f"Failed to save features: {str(e)}")
 
 
+@traced_tool("find_files")
 def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
     """Looks into a directory and finds files of a particular type or pattern.
 
@@ -144,6 +169,9 @@ def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
         A dictionary containing the status and a list of found files with their details
         (name, absolute path, size in bytes, and modification time).
     """
+    span = current_span()
+    span.set_attribute("fs.directory", directory)
+
     try:
         if not os.path.exists(directory):
             return {
@@ -164,8 +192,12 @@ def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
             pattern = ext
         elif ext.startswith("."):
             pattern = f"*{ext}"
+        elif "*" in ext:
+            pattern = ext
         else:
             pattern = f"*.{ext}"
+
+        span.set_attribute("fs.pattern", pattern)
 
         search_pattern = os.path.join(directory, pattern)
         matched_paths = glob.glob(search_pattern)
@@ -182,6 +214,8 @@ def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
                         "modified_time": stat.st_mtime,
                     }
                 )
+
+        span.set_attribute("fs.match.count", len(files_list))
 
         return {
             "status": "success",
