@@ -11,12 +11,13 @@ from agents.sub_agents.research_agent.prompt import (
     LIT_FETCHER_INSTRUCTION,
     LIT_SEARCHER_INSTRUCTION,
 )
+from core.config import settings
 from tools.web_fetch import fetch_url
 
 google_search = GoogleSearchTool(bypass_multi_tools_limit=True)
 
 lit_searcher = LlmAgent(
-    model="gemini-2.5-flash-lite",
+    model=settings.DEFAULT_MODEL,
     name="lit_searcher",
     description="Runs Google searches on the research topic and summarises findings.",
     instruction=LIT_SEARCHER_INSTRUCTION,
@@ -25,7 +26,7 @@ lit_searcher = LlmAgent(
 )
 
 lit_fetcher = LlmAgent(
-    model="gemini-2.5-flash-lite",
+    model=settings.DEFAULT_MODEL,
     name="lit_fetcher",
     description="Fetches URLs from the search summary and enriches with referenced sources.",
     instruction=LIT_FETCHER_INSTRUCTION,

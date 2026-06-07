@@ -12,6 +12,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from agents.sub_agents.modeling_agent.prompt import MODELING_AGENT_INSTRUCTION
+from core.config import settings
 from tools.modeling_tools import (
     evaluate_cv,
     evaluate_holdout,
@@ -23,7 +24,7 @@ from tools.modeling_tools import (
 )
 
 logger = logging.getLogger("sentinelds.modeling_agent")
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = settings.DEFAULT_MODEL
 
 # Define the Modelling Agent LlmAgent
 modeling_agent = LlmAgent(

@@ -16,12 +16,13 @@ from agents.sub_agents.feature_agent.prompt import (
     DATA_PROFILER_INSTRUCTION,
     FEATURE_ENGINEER_INSTRUCTION,
 )
+from core.config import settings
 from tools.feature_tools import csv_read, find_files, pandas_profile
 from tools.file_creation_tools import make_csv_file
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = settings.DEFAULT_MODEL
 
 
 # ---------------------------------------------------------------------------

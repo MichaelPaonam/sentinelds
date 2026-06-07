@@ -16,13 +16,14 @@ from google.genai.types import Content, Part
 
 dotenv.load_dotenv()
 
+from core.config import settings  # noqa: E402 — must follow dotenv.load_dotenv()
+
 logger = logging.getLogger("sentinelds.e2e")
 
-DEFAULT_CSV = "data/ecg_csv/ddd/01M_1.csv"
-DEFAULT_PAPER_URL = "http://localhost:8001/papers"
-DEFAULT_TARGET = "label"
-
-COMBINED_CSV = "data/ecg_csv/ddd/_e2e_combined.csv"
+DEFAULT_CSV = settings.E2E_DEFAULT_CSV
+DEFAULT_PAPER_URL = settings.E2E_PAPER_URL
+DEFAULT_TARGET = settings.E2E_TARGET_COL
+COMBINED_CSV = settings.E2E_COMBINED_CSV
 
 
 def _prepare_csv(csv_path: str, target: str) -> str:
