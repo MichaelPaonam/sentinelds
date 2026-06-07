@@ -71,6 +71,7 @@ coverage.xml
 # Logs & local data
 *.log
 logs/
+data/
 data/raw/
 data/interim/
 data/processed/
@@ -103,3 +104,5 @@ yarn-error.log*
 CLAUDE.md
 AGENTS.md
 .mcp.json
+features.csv
+data/ecg_csv/ddd/_e2e_combined.csv

@@ -34,6 +34,10 @@ DATA_PROFILER_INSTRUCTION = (
     "5. Output a clean, detailed analysis report summarizing the dataset's characteristics "
     "and recommending feature transformations (e.g., Standard Scaling, MinMax Scaling, "
     "One-Hot Encoding, EAR calculations). Do not save files in this phase.\n"
+    "If the input CSV contains raw signal columns (e.g., `timestamp_sec`, `ecg`), extract "
+    "simple statistical features (mean, std, min, max, peak count) before saving.\n"
+    "If a tool returns `status: error`, capture the message in your output and continue "
+    "with the remaining steps using your best available information.\n"
 )
 
 
@@ -54,4 +58,6 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "CSV to the specified destination path.\n"
     "5. Provide a summary of the engineered dataset, including the output path, "
     "total rows, number of features, and a list of all final columns.\n"
+    "If a tool returns `status: error`, capture the message in your output and continue "
+    "with the remaining steps using your best available information.\n"
 )
