@@ -4,15 +4,20 @@ lit_searcher: Google Search only (Vertex grounding restriction — cannot mix wi
 lit_fetcher:  fetch_url only — this is the agent A1 hooks into.
 """
 
-from google.adk.agents import LlmAgent, SequentialAgent
-from google.adk.tools.google_search_tool import GoogleSearchTool
+from observability import init_tracing, instrument_genai
 
-from agents.sub_agents.research_agent.prompt import (
+init_tracing(service_name="sentinelds-research-agent", agent_name="research_agent")
+instrument_genai()
+
+from google.adk.agents import LlmAgent, SequentialAgent  # noqa: E402
+from google.adk.tools.google_search_tool import GoogleSearchTool  # noqa: E402
+
+from agents.sub_agents.research_agent.prompt import (  # noqa: E402
     LIT_FETCHER_INSTRUCTION,
     LIT_SEARCHER_INSTRUCTION,
 )
-from core.config import settings
-from tools.web_fetch import fetch_url
+from core.config import settings  # noqa: E402
+from tools.web_fetch import fetch_url  # noqa: E402
 
 google_search = GoogleSearchTool(bypass_multi_tools_limit=True)
 

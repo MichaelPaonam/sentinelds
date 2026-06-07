@@ -6,7 +6,6 @@ routed to Dynatrace, registers the fetch_url tool, and executes a baseline query
 
 import asyncio
 import hashlib
-import os
 import sys
 from urllib.parse import urlparse
 
@@ -15,17 +14,10 @@ from google.adk import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
-
-# Core OpenTelemetry Modules
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import StatusCode
 
-from core.config import settings
+from observability import init_tracing, instrument_genai, shutdown_tracing
 from tools.web_fetch import fetch_url
 
 load_dotenv()
@@ -34,35 +26,10 @@ AGENT_NAME = "Research Agent"
 # APP_NAME = "research_agent"
 USER_ID = "local_hackathon_user"
 SESSION_ID = "local_test_session_001"
-resource = Resource.create(
-    attributes={"service.name": "sentinelds-agentic-workflow", "agent.name": AGENT_NAME}
-)
 
-provider = TracerProvider(resource=resource)
-trace.set_tracer_provider(provider)
-
-if not settings.DYNATRACE_API_URL or not settings.DYNATRACE_API_TOKEN:
-    print("DYNATRACE_API_URL and DYNATRACE_API_TOKEN are required")
-    sys.exit(1)
-
-endpoint = f"{settings.DYNATRACE_API_URL.rstrip('/')}/api/v2/otlp/v1/traces"
-token = settings.DYNATRACE_API_TOKEN.get_secret_value()
-
-headers = {
-    "Authorization": f"Api-Token {token}",
-}
-
-# Build and register the execution tracer pipeline
-otlp_exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
-processor = BatchSpanProcessor(otlp_exporter)
-provider.add_span_processor(processor)
-
-if "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ:
-    raise EnvironmentError(
-        "Environment variable 'OTEL_SEMCONV_STABILITY_OPT_IN' is required but not set."
-        "(e.g. 'gen_ai_latest_experimental')."
-    )
-GoogleGenAiSdkInstrumentor().instrument()
+# Initialize tracing with modular system
+init_tracing(service_name="sentinelds-agentic-workflow", agent_name=AGENT_NAME)
+instrument_genai()
 
 agent = Agent(
     name="research_agent",
@@ -159,7 +126,7 @@ async def main():
             raise e
         finally:
             print("Flushing spans directly to telemetry sink...")
-            provider.shutdown()
+            shutdown_tracing()
 
 
 if __name__ == "__main__":
