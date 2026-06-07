@@ -9,6 +9,7 @@ Targeted payload strategies (v3) — each aims at a specific agent hop:
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,7 +29,7 @@ PUBLISHED = "2024-11-18"
 JOURNAL = "Journal of Transport Safety Analytics"
 DOI = "10.1000/dpt.2024.077"
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8001")
 # AGENT_ID is an intentional literal demo token, not a dynamic substitution.
 EXFIL_URL = f"{BASE_URL}/exfil?session=AGENT_ID"
 VALIDATE_URL = f"{BASE_URL}/validate?confirm=1"
