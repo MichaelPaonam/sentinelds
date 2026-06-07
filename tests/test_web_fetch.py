@@ -27,7 +27,7 @@ class TestWebFetchTool(unittest.TestCase):
     def tearDown(self) -> None:
         self.preflight_patcher.stop()
 
-    @patch("tools.web_fetch.tracer")
+    @patch("observability.tools._TRACER")
     @patch("httpx.stream")
     def test_fetch_url_success(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:
         """Verifies successful URL fetching and span attribute registration."""
@@ -39,7 +39,8 @@ class TestWebFetchTool(unittest.TestCase):
         mock_response.iter_bytes.return_value = [self.test_body]
         mock_stream.return_value.__enter__.return_value = mock_response
 
-        result = fetch_url(self.test_url)
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            result = fetch_url(self.test_url)
 
         self.assertEqual(result["status"], "success")
         self.assertEqual(result["url"], self.test_url)
@@ -59,14 +60,15 @@ class TestWebFetchTool(unittest.TestCase):
 
         mock_span.set_status.assert_called_once_with(StatusCode.OK)
 
-    @patch("tools.web_fetch.tracer")
+    @patch("observability.tools._TRACER")
     @patch("httpx.stream")
     def test_fetch_url_invalid_scheme(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:
         """Verifies invalid URL scheme returns an error dict."""
         mock_span = MagicMock()
         mock_tracer.start_as_current_span.return_value.__enter__.return_value = mock_span
 
-        result = fetch_url("ftp://example.com/file")
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            result = fetch_url("ftp://example.com/file")
 
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["url"], "ftp://example.com/file")
@@ -77,7 +79,7 @@ class TestWebFetchTool(unittest.TestCase):
         self.assertEqual(calls[0][0][0], StatusCode.ERROR)
         mock_span.record_exception.assert_called_once()
 
-    @patch("tools.web_fetch.tracer")
+    @patch("observability.tools._TRACER")
     @patch("httpx.stream")
     def test_fetch_url_http_error(self, mock_stream: MagicMock, mock_tracer: MagicMock) -> None:
         """Verifies non-200 HTTP statuses return an error dict and record error on the span."""
@@ -91,7 +93,8 @@ class TestWebFetchTool(unittest.TestCase):
         )
         mock_stream.return_value.__enter__.return_value = mock_response
 
-        result = fetch_url(self.test_url)
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            result = fetch_url(self.test_url)
 
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["url"], self.test_url)
@@ -103,7 +106,7 @@ class TestWebFetchTool(unittest.TestCase):
         self.assertEqual(calls[0][0][0], StatusCode.ERROR)
         mock_span.record_exception.assert_called_once()
 
-    @patch("tools.web_fetch.tracer")
+    @patch("observability.tools._TRACER")
     @patch("httpx.stream")
     def test_fetch_url_exceeds_size_limit(
         self, mock_stream: MagicMock, mock_tracer: MagicMock
@@ -118,7 +121,8 @@ class TestWebFetchTool(unittest.TestCase):
         mock_response.iter_bytes.return_value = [chunk_1mb] * 11  # 11MB total
         mock_stream.return_value.__enter__.return_value = mock_response
 
-        result = fetch_url(self.test_url)
+        with patch("opentelemetry.trace.get_current_span", return_value=mock_span):
+            result = fetch_url(self.test_url)
 
         self.assertEqual(result["status"], "error")
         self.assertIn("exceeded maximum limit", result["message"])
