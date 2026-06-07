@@ -23,7 +23,7 @@ from tools.modeling_tools import (
 )
 
 logger = logging.getLogger("sentinelds.modeling_agent")
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.5-flash-lite"
 
 # Define the Modelling Agent LlmAgent
 modeling_agent = LlmAgent(

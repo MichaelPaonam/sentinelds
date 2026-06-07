@@ -21,7 +21,7 @@ from tools.file_creation_tools import make_csv_file
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.5-flash-lite"
 
 
 # ---------------------------------------------------------------------------

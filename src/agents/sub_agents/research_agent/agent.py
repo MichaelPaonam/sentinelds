@@ -55,7 +55,7 @@ google_search = GoogleSearchTool(bypass_multi_tools_limit=True)
 
 logger = logging.getLogger("sentinelds.research_agent")
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.5-flash-lite"
 THINKING_MODEL = "gemini-2.5-flash"  # supports BuiltInPlanner with include_thoughts
 
 
