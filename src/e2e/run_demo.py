@@ -34,7 +34,7 @@ def _prepare_csv(csv_path: str, target: str) -> str:
     """
     df = pd.read_csv(csv_path)
     if target in df.columns:
-        return csv_path
+        return str(pathlib.Path(csv_path).resolve())
 
     # Try to derive the _2 partner from a _1 file
     p = pathlib.Path(csv_path)
@@ -58,7 +58,7 @@ def _prepare_csv(csv_path: str, target: str) -> str:
     out.parent.mkdir(parents=True, exist_ok=True)
     combined.to_csv(out, index=False)
     print(f"[e2e] Synthesized labeled CSV → {out} ({len(combined)} rows)")
-    return str(out)
+    return str(out.resolve())
 
 
 def _build_prompt(paper_url: str, csv_path: str, target: str) -> str:
@@ -71,7 +71,7 @@ def _build_prompt(paper_url: str, csv_path: str, target: str) -> str:
 
 
 async def run_demo(prompt: str, csv: str, paper_url: str, target: str) -> None:
-    csv_path = _prepare_csv(csv, target)
+    csv_path = str(pathlib.Path(_prepare_csv(csv, target)).resolve())
     final_prompt = prompt or _build_prompt(paper_url, csv_path, target)
 
     # Import here to avoid circular imports at module load
