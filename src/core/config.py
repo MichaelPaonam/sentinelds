@@ -45,16 +45,6 @@ class Settings(BaseSettings):
     E2E_TARGET_COL: str = "label"
     E2E_COMBINED_CSV: str = "data/ecg_csv/ddd/_e2e_combined.csv"
 
-    # Agent model selection
-    DEFAULT_MODEL: str = "gemini-2.5-flash-lite"
-    THINKING_MODEL: str = "gemini-2.5-flash"
-
-    # E2E demo defaults
-    E2E_DEFAULT_CSV: str = "data/ecg_csv/ddd/01M_1.csv"
-    E2E_PAPER_URL: str = "http://localhost:8001/papers"
-    E2E_TARGET_COL: str = "label"
-    E2E_COMBINED_CSV: str = "data/ecg_csv/ddd/_e2e_combined.csv"
-
 
 # Global configuration instance
 try:

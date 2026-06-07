@@ -21,7 +21,8 @@ Follow these step-by-step instructions:
 2. **Step 1 (Profile)**:
    - Call the `load_features` tool with `csv_path` and `target_col`.
    - Record `n_rows`, `n_cols`, `class_balance`, and `recommended_strategy`.
-   - If `load_features` returns an error, write a `## Issues` section in the report and stop — there's nothing to model on.
+   - If `load_features` returns an error, write a `## Issues` section in the report
+     and stop — there's nothing to model on.
 
 3. **Step 2 (Determine Pipeline Strategy)**:
    - Calculate if class imbalance is severe. If the ratio of majority to minority class count
@@ -41,7 +42,8 @@ Follow these step-by-step instructions:
    - Call the `train_catboost` tool with `csv_path`, `target_col`, and the exact same flags:
      `tune=False`, `pca` (True/False), `feature_selection` (True/False), `calibrate=True`.
    - Capture each returned `model_path`.
-   - If a training tool errors, record the error, skip that candidate, and continue. If both fail, write `## Issues` and stop, but still call `save_report`.
+   - If a training tool errors, record the error, skip that candidate, and continue.
+     If both fail, write `## Issues` and stop, but still call `save_report`.
 
 5. **Step 4 (Evaluate Candidates with Threshold Optimization)**:
    - Based on the chosen strategy in Step 2:
@@ -52,7 +54,8 @@ Follow these step-by-step instructions:
    - Extract the following from each evaluation tool response: `accuracy`, `f1`, `precision`,
      `recall`, `optimal_threshold`, `roc_auc`, `pr_auc`, `ascii_roc`, `ascii_pr`, and
      `explanations` (or their mean/std counterparts for CV).
-   - If evaluation errors for a candidate, mark its metrics 'unavailable' in the table and continue with the remaining candidate.
+   - If evaluation errors for a candidate, mark its metrics 'unavailable' in the table
+     and continue with the remaining candidate.
 
 6. **Step 5 (Select Winning Model)**:
    - Compare the F1 scores of both candidates (`f1` for holdout, `f1_mean` for CV).

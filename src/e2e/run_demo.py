@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import pathlib
 
 import dotenv
@@ -40,7 +39,9 @@ def _prepare_csv(csv_path: str, target: str) -> str:
     p = pathlib.Path(csv_path)
     stem = p.stem
     if not stem.endswith("_1"):
-        logger.warning("CSV %s has no '%s' column and is not a _1 file — using as-is", csv_path, target)
+        logger.warning(
+            "CSV %s has no '%s' column and is not a _1 file — using as-is", csv_path, target
+        )
         return csv_path
 
     partner = p.with_name(stem[:-1] + "2" + p.suffix)
@@ -105,15 +106,13 @@ async def run_demo(prompt: str, csv: str, paper_url: str, target: str) -> None:
         if hasattr(event, "is_final_response") and event.is_final_response():
             content = getattr(event, "content", None)
             if content and getattr(content, "parts", None):
-                text = "".join(
-                    p.text for p in content.parts if p and getattr(p, "text", None)
-                )
+                text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
                 print(f"\n[{author}] FINAL:\n{text.strip()}\n")
         else:
             # Stream intermediate text events for visibility
-            text = getattr(event, "text", None)
-            if text:
-                print(f"[{author}] {str(text).strip()}")
+            raw_text = getattr(event, "text", None)
+            if raw_text:
+                print(f"[{author}] {str(raw_text).strip()}")
 
     # Print final session state keys for verification
     session = await session_service.get_session(
@@ -130,7 +129,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the SentinelDS e2e demo pipeline.")
     parser.add_argument("--prompt", default="", help="Override the default seeded prompt.")
     parser.add_argument("--csv", default=DEFAULT_CSV, help="Path to the input CSV.")
-    parser.add_argument("--paper-url", default=DEFAULT_PAPER_URL, help="URL for the research stage.")
+    parser.add_argument(
+        "--paper-url", default=DEFAULT_PAPER_URL, help="URL for the research stage."
+    )
     parser.add_argument("--target", default=DEFAULT_TARGET, help="Target column name.")
     args = parser.parse_args()
 

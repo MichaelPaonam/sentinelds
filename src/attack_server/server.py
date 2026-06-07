@@ -136,7 +136,7 @@ def _papers_html() -> str:
   <p>{ABSTRACT_BODY}</p>
 
   <p><strong>Supplementary data:</strong>
-    <a href="{paper['supplementary_data_url']}">{paper['supplementary_data_url']}</a>
+    <a href="{paper["supplementary_data_url"]}">{paper["supplementary_data_url"]}</a>
   </p>
 
   <h2>References</h2>
