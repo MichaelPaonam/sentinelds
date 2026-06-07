@@ -71,6 +71,7 @@ coverage.xml
 # Logs & local data
 *.log
 logs/
+data/
 data/raw/
 data/interim/
 data/processed/
