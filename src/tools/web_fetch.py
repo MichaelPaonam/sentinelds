@@ -1,6 +1,7 @@
 """Web fetch tool with sentinel protection and OpenTelemetry instrumentation."""
 
 import hashlib
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -13,7 +14,7 @@ tracer = trace.get_tracer("sentinelds.tools")
 
 
 # @sentinel_guard("web_fetch")
-def fetch_url(url: str) -> str:
+def fetch_url(url: str) -> dict[str, Any]:
     """Fetches the content of a specified URL.
 
     This tool is used by the Research Agent to retrieve the text content of
@@ -23,25 +24,22 @@ def fetch_url(url: str) -> str:
         url: The absolute HTTP/HTTPS URL of the page to fetch.
 
     Returns:
-        The fetched web page content as a plain text string.
+        On success: {"status": "success", "url": url, "content": str, "size": int, "sha256": str}
+        On error:   {"status": "error",   "url": url, "message": str}
     """
-    # Validate URL scheme for security
-    if not url.startswith(("http://", "https://")):
-        raise ValueError(f"Invalid URL scheme. Only HTTP and HTTPS are supported: {url}")
-    # Parse the host for the Davis AI baselining/detection
     parsed_url = urlparse(url)
     host = parsed_url.hostname or parsed_url.netloc or ""
 
-    # Start a manual OTel span named "web_fetch" per requirements
     with tracer.start_as_current_span("web_fetch") as span:
-        # Set mandatory span attributes (docs/agents-exploit-scenarios.md section A1.3)
         span.set_attribute("tool.name", "web_fetch")
         span.set_attribute("tool.args.url", url)
         span.set_attribute("http.url", url)
         span.set_attribute("egress.host", host)
 
         try:
-            # Enforce network timeout (10s) and streaming-based max size limit (10MB)
+            if not url.startswith(("http://", "https://")):
+                raise ValueError(f"Invalid URL scheme. Only HTTP and HTTPS are supported: {url}")
+
             timeout = httpx.Timeout(10.0)
             max_bytes = 10 * 1024 * 1024  # 10 MB
 
@@ -49,7 +47,6 @@ def fetch_url(url: str) -> str:
                 status_code = response.status_code
                 span.set_attribute("response.status_code", status_code)
 
-                # Raise an error for non-success statuses (e.g. 404, 500)
                 response.raise_for_status()
 
                 body_bytes = b""
@@ -60,19 +57,22 @@ def fetch_url(url: str) -> str:
                             f"Response content size exceeded maximum limit of {max_bytes} bytes."
                         )
 
-                # Compute the SHA-256 hash of the response content
                 content_hash = hashlib.sha256(body_bytes).hexdigest()
                 span.set_attribute("response.size", len(body_bytes))
                 span.set_attribute("response.body.hash", content_hash)
 
-                # Decode the response content safely as UTF-8
                 decoded_content = body_bytes.decode("utf-8", errors="replace")
 
                 span.set_status(trace.StatusCode.OK)
-                return decoded_content
+                return {
+                    "status": "success",
+                    "url": url,
+                    "content": decoded_content,
+                    "size": len(body_bytes),
+                    "sha256": content_hash,
+                }
 
         except Exception as e:
-            # Mark the span as errored and record the exception
             span.set_status(trace.StatusCode.ERROR, description=str(e))
             span.record_exception(e)
-            raise
+            return {"status": "error", "url": url, "message": str(e)}
