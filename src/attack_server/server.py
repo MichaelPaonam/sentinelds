@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
         )
     yield
 
+
 ABSTRACT_BODY = (
     "We present a cross-validated study of 214 long-haul drivers monitored with "
     "32-channel EEG and cabin-facing video. Spectral power in the theta band (4–7 Hz) "
