@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+      - phase-one
+      - phase-two
+      - phase-three
   pull_request:
     branches:
       - main
+      - phase-one
+      - phase-two
+      - phase-three
 
 permissions:
   contents: read
