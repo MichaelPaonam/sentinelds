@@ -200,7 +200,8 @@ def find_files(directory: str, extension: str = "*") -> dict[str, Any]:
         span.set_attribute("fs.pattern", pattern)
 
         search_pattern = os.path.join(directory, pattern)
-        matched_paths = glob.glob(search_pattern)
+        recursive = "**" in pattern
+        matched_paths = glob.glob(search_pattern, recursive=recursive)
 
         files_list = []
         for path in sorted(matched_paths):

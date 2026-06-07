@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY a2a_agents/a2a_feature/ /app/a2a_agents/a2a_feature/
 COPY agents/sub_agents/feature_agent/ /app/agents/sub_agents/feature_agent/
 COPY core/ /app/core/
+COPY observability/ /app/observability/
 COPY tools/ /app/tools/
 
 ENV PORT=8080
