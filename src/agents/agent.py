@@ -1,13 +1,17 @@
 # root_agent
 
-from google.adk.agents import SequentialAgent
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+from observability import init_tracing, instrument_genai
 
-from agents.sub_agents.feature_agent import (
+init_tracing(service_name="sentinelds-agentic-workflow", agent_name="root_agent")
+instrument_genai()
+
+from google.adk.agents import SequentialAgent  # noqa: E402
+
+from agents.sub_agents.feature_agent import (  # noqa: E402
     agent as feature_agent_module,
 )
-from agents.sub_agents.modeling_agent import agent as modeling_agent_module
-from agents.sub_agents.research_agent import (
+from agents.sub_agents.modeling_agent import agent as modeling_agent_module  # noqa: E402
+from agents.sub_agents.research_agent import (  # noqa: E402
     agent as research_agent_module,
 )
 
