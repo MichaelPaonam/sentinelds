@@ -103,3 +103,4 @@ yarn-error.log*
 CLAUDE.md
 AGENTS.md
 .mcp.json
+features.csv
