@@ -8,20 +8,26 @@ Structure:
 
 from __future__ import annotations
 
-import logging
+from observability import init_tracing, instrument_genai
 
-from google.adk.agents import Agent, LlmAgent, SequentialAgent
+init_tracing(service_name="sentinelds-feature-agent", agent_name="feature_agent")
+instrument_genai()
 
-from agents.sub_agents.feature_agent.prompt import (
+import logging  # noqa: E402
+
+from google.adk.agents import Agent, LlmAgent, SequentialAgent  # noqa: E402
+
+from agents.sub_agents.feature_agent.prompt import (  # noqa: E402
     DATA_PROFILER_INSTRUCTION,
     FEATURE_ENGINEER_INSTRUCTION,
 )
-from tools.feature_tools import csv_read, find_files, pandas_profile
-from tools.file_creation_tools import make_csv_file
+from core.config import settings  # noqa: E402
+from tools.feature_tools import csv_read, find_files, pandas_profile  # noqa: E402
+from tools.file_creation_tools import make_csv_file  # noqa: E402
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = settings.DEFAULT_MODEL
 
 
 # ---------------------------------------------------------------------------

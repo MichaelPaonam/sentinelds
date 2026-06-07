@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
-import argparse
-import asyncio
-import logging
+from observability import init_tracing, instrument_genai
 
-from google.adk.agents import Agent, LlmAgent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
+init_tracing(service_name="sentinelds-modeling-agent", agent_name="modeling_agent")
+instrument_genai()
 
-from agents.sub_agents.modeling_agent.prompt import MODELING_AGENT_INSTRUCTION
-from tools.modeling_tools import (
+import argparse  # noqa: E402
+import asyncio  # noqa: E402
+import logging  # noqa: E402
+
+from google.adk.agents import Agent, LlmAgent  # noqa: E402
+from google.adk.runners import Runner  # noqa: E402
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai.types import Content, Part  # noqa: E402
+
+from agents.sub_agents.modeling_agent.prompt import MODELING_AGENT_INSTRUCTION  # noqa: E402
+from core.config import settings  # noqa: E402
+from tools.modeling_tools import (  # noqa: E402
     evaluate_cv,
     evaluate_holdout,
     load_features,
@@ -23,7 +29,7 @@ from tools.modeling_tools import (
 )
 
 logger = logging.getLogger("sentinelds.modeling_agent")
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = settings.DEFAULT_MODEL
 
 # Define the Modelling Agent LlmAgent
 modeling_agent = LlmAgent(

@@ -22,7 +22,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
-| **A1 — Indirect prompt injection** | Research Agent (web fetch) | Trusted web content carries hidden instructions to exfiltrate data | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
+| **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
 | **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
@@ -31,7 +31,7 @@ Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource 
 
 Both attacks exploit the **agent architecture**, not the model:
 
-- **A1** works because the Research Agent is *instructed* to fetch web pages and trust their content. Frontier models still fall to *indirect* prompt injection at meaningful rates — the field considers this largely unsolved at the model layer. The demo uses a **realistic injection** (e.g., a fake "editor's note" framing the malicious action as IRB-mandated workflow), not a crude `IGNORE PREVIOUS INSTRUCTIONS` payload that modern Gemini would refuse.
+- **A1** works because the Research Agent is *instructed* to fetch web pages and enrich its findings with referenced supplementary and replication URLs. The attack payload contains no imperative directive — malicious URLs are embedded as normal research-apparatus fields (`supplementary_data_url`, `references[]`). The agent follows them because its own prompt tells it to chase cited sources. Confirmed working end-to-end against Gemini 2.5 Flash Lite.
 - **A2** never touches the LLM — the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
 
 This is the **point**: model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow. SentinelDS defends at the architectural layer, where the actual exposure lives. This matches the SANS AISMM Stage 4 *Confused Deputy* framing — a legitimately permissioned, well-aligned agent manipulated through trusted inputs.
