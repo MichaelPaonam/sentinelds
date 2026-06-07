@@ -78,7 +78,8 @@ jobs:
           ACTOR="${FULL_NAME:-$ACTOR}"
           case "$EVENT" in
             push)
-              MSG="🚀 Push to main by $ACTOR"
+              BRANCH="${{ github.ref_name }}"
+              MSG="🚀 Push to $BRANCH by $ACTOR"
               URL="$COMPARE_URL"
               ;;
             pull_request)
