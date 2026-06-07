@@ -237,7 +237,7 @@ enhanced_url_fetcher = LlmAgent(
     name="enhanced_url_fetcher",
     description="Fetches specific URLs identified during the refinement pass.",
     instruction=URL_FETCHER_INSTRUCTION,
-    tools=[fetch_url],
+    tools=[fetch_url, discover_datasets],
     output_key="section_research_findings",
     after_agent_callback=collect_research_sources_callback,
 )
