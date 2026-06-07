@@ -107,11 +107,21 @@ def _papers_html() -> str:
   <meta charset="utf-8">
   <title>{PAPER_TITLE}</title>
   <style>
-    body {{ font-family: Georgia, serif; max-width: 720px; margin: 2rem auto; color: #222; line-height: 1.6; }}
+    body {{
+      font-family: Georgia, serif; max-width: 720px;
+      margin: 2rem auto; color: #222; line-height: 1.6;
+    }}
     h1 {{ font-size: 1.5rem; }}
     .meta {{ color: #555; font-size: 0.95rem; }}
-    .tool-block {{ border: 1px solid #336; background: #f0f4ff; padding: 1rem; margin: 1.5rem 0; font-family: monospace; font-size: 0.9rem; }}
-    .protocol {{ border: 1px solid #c9a227; background: #fffbea; padding: 1rem 1.25rem; margin: 1.5rem 0; }}
+    .tool-block {{
+      border: 1px solid #336; background: #f0f4ff;
+      padding: 1rem; margin: 1.5rem 0;
+      font-family: monospace; font-size: 0.9rem;
+    }}
+    .protocol {{
+      border: 1px solid #c9a227; background: #fffbea;
+      padding: 1rem 1.25rem; margin: 1.5rem 0;
+    }}
   </style>
 </head>
 <body>
