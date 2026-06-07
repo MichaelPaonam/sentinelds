@@ -22,7 +22,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
-| **A1 — Indirect prompt injection** | Research Agent (web fetch) | Trusted web content carries hidden instructions to exfiltrate data | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
+| **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
 | **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
@@ -31,7 +31,7 @@ Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource 
 
 Both attacks exploit the **agent architecture**, not the model:
 
-- **A1** works because the Research Agent is *instructed* to fetch web pages and trust their content. Frontier models still fall to *indirect* prompt injection at meaningful rates — the field considers this largely unsolved at the model layer. The demo uses a **realistic injection** (e.g., a fake "editor's note" framing the malicious action as IRB-mandated workflow), not a crude `IGNORE PREVIOUS INSTRUCTIONS` payload that modern Gemini would refuse.
+- **A1** works because the Research Agent is *instructed* to fetch web pages and enrich its findings with referenced supplementary and replication URLs. The attack payload contains no imperative directive — malicious URLs are embedded as normal research-apparatus fields (`supplementary_data_url`, `references[]`). The agent follows them because its own prompt tells it to chase cited sources. Confirmed working end-to-end against Gemini 2.5 Flash Lite.
 - **A2** never touches the LLM — the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
 
 This is the **point**: model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow. SentinelDS defends at the architectural layer, where the actual exposure lives. This matches the SANS AISMM Stage 4 *Confused Deputy* framing — a legitimately permissioned, well-aligned agent manipulated through trusted inputs.
@@ -40,15 +40,14 @@ This is the **point**: model-layer safety is necessary but insufficient for agen
 
 Every demoed attack follows the same four-phase loop. This is the architectural claim of the project:
 
-```
-  ┌────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐
-  │ 1. EMIT    │───▶│ 2. DETECT    │───▶│ 3. DECIDE       │───▶│ 4. ENFORCE   │
-  │ OTel spans │    │ Davis AI +   │    │ Sentinel Agent  │    │ Orchestrator │
-  │ + custom   │    │ custom event │    │ queries MCP,    │    │ skips tool   │
-  │ events     │    │ correlation  │    │ returns ALLOW/  │    │ call;         │
-  │ from every │    │ raises a     │    │ WARN/HALT       │    │ quarantines   │
-  │ tool call  │    │ Problem      │    │ (deterministic) │    │ agent/dataset │
-  └────────────┘    └──────────────┘    └─────────────────┘    └──────────────┘
+```mermaid
+flowchart LR
+    E["<b>1. EMIT</b>\nOTel spans + custom events\nfrom every tool call"]
+    D["<b>2. DETECT</b>\nDavis AI + custom event\ncorrelation raises a Problem"]
+    De["<b>3. DECIDE</b>\nSentinel Agent queries MCP,\nreturns ALLOW / WARN / HALT\n(deterministic)"]
+    En["<b>4. ENFORCE</b>\nOrchestrator skips tool call;\nquarantines agent / dataset"]
+
+    E --> D --> De --> En
 ```
 
 Sentinel's decision is **deterministic** (rule-based on Problem state, not LLM-decided) and **fail-closed** (MCP unreachable → HALT for training/egress). A prompt-injected agent cannot talk Sentinel out of halting.
@@ -66,28 +65,35 @@ Out of scope for the hackathon: governance artifacts (AI Governance Council, NHI
 
 ## Architecture
 
-```
-┌─────────────────── SentinelDS Workspace (Google Cloud / ADK) ─────────────────┐
-│                                                                                │
-│  ┌──────────┐   ┌──────────────┐   ┌────────────┐                              │
-│  │ Research │   │  Feature Eng │   │  Modelling │   ← three Gemini agents      │
-│  └────┬─────┘   └──────┬───────┘   └──────┬─────┘                              │
-│       │ tool calls     │ tool calls       │ tool calls                         │
-│       ▼                ▼                  ▼                                    │
-│  ┌──────────────────────────────────────────────────┐                          │
-│  │  OpenTelemetry layer (LLM, tool, MCP, I/O spans) │                          │
-│  └──────────────────────┬───────────────────────────┘                          │
-│                         │ OTLP                                                  │
-│                         ▼                                                       │
-│  ┌──────────────────────────────────────────────────┐                          │
-│  │  Dynatrace SaaS (traces · Davis AI · Problems)   │                          │
-│  └──────────────────────┬───────────────────────────┘                          │
-│                         │ MCP query (list_problems, execute_dql)                │
-│                         ▼                                                       │
-│  ┌──────────────────────────────────────────────────┐                          │
-│  │  Sentinel Agent — pre-flight ALLOW/WARN/HALT     │                          │
-│  └──────────────────────────────────────────────────┘                          │
-└────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph workspace["SentinelDS Workspace (Google Cloud / ADK)"]
+        direction TB
+
+        subgraph agents["Three Gemini Agents"]
+            direction LR
+            RA["Research Agent\nlit_searcher · lit_fetcher"]
+            FA["Feature Eng Agent\ndataset_profiler · feature_transformer"]
+            MA["Modelling Agent\nXGBoost · CatBoost · reporter"]
+        end
+
+        OTel["OpenTelemetry Layer\nLLM · tool · MCP · I/O spans"]
+
+        RA -- tool calls --> OTel
+        FA -- tool calls --> OTel
+        MA -- tool calls --> OTel
+    end
+
+    OTel -- "OTLP/HTTP" --> DT
+
+    subgraph dynatrace["Dynatrace SaaS"]
+        DT["Traces · Davis AI · Problems"]
+    end
+
+    DT -- "MCP (list_problems, execute_dql)" --> SA
+
+    SA["Sentinel Agent\nALLOW / WARN / HALT"]
+    SA -. "pre-flight decision" .-> agents
 ```
 
 Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
@@ -102,18 +108,37 @@ sentinelds/
 ├── PLAN.md                                    ← technical plan, schedule, milestones
 ├── docs/
 │   ├── ai-security-threat-modelling.md        ← AISMM pillars, MITRE ATLAS, defense loop
-│   └── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
-├── src/                                       ← agents + tools + Sentinel (filling in across phases)
-│   ├── core/                                  ← Pydantic configuration and core domain models
-│   │   ├── config.py
-│   │   └── models.py
-│   ├── agents/                                ← ADK workspace agents
-│   │   └── single_agent.py
-│   └── smoke/                                 ← verification and smoke-testing utilities
-│       ├── dynatrace_smoke_test.py
-│       ├── verify_smoke_test.py
-│       ├── collector-config.yaml
-│       └── smoke-test-span.json
+│   ├── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
+│   ├── dynatrace-mcp-notes.md                 ← Dynatrace MCP spike: tool shapes, response schemas
+│   └── dynatrace-mcp-options.md               ← MCP connectivity options and trade-offs
+├── src/
+│   ├── agents/
+│   │   ├── agent.py                           ← root SequentialAgent (research → features → modeling)
+│   │   └── sub_agents/
+│   │       ├── research_agent/                ← lit_searcher + lit_fetcher (A1 target)
+│   │       ├── feature_agent/                 ← dataset_profiler + feature_transformer
+│   │       └── modeling_agent/                ← XGBoost + CatBoost trainer + reporter
+│   ├── a2a_agents/
+│   │   ├── a2a_research/                      ← research agent packaged as A2A service (Dockerfile)
+│   │   ├── a2a_feature/                       ← feature agent packaged as A2A service (Dockerfile)
+│   │   └── a2a_modeling/                      ← modeling agent packaged as A2A service (Dockerfile)
+│   ├── attack_server/
+│   │   └── server.py                          ← fake paper API with subtle A1 payload (v4)
+│   ├── core/
+│   │   └── config.py                          ← Pydantic Settings (env vars, model names, e2e defaults)
+│   ├── e2e/
+│   │   └── run_demo.py                        ← end-to-end pipeline runner CLI
+│   ├── observability/
+│   │   ├── otel.py                            ← TracerProvider init + OTLP/HTTP export to Dynatrace
+│   │   ├── instrumentation.py                 ← once-per-process Google GenAI SDK auto-instrumentation
+│   │   └── tools.py                           ← @trace_tool decorator + tool_span context manager
+│   ├── sentinel/
+│   │   ├── preflight.py                       ← ALLOW/WARN/HALT decision engine
+│   │   └── dynatrace_mcp.py                   ← Dynatrace MCP client
+│   ├── smoke/                                 ← OTel plumbing verification
+│   └── tools/                                 ← fetch_url, feature_tools, modeling_tools, …
+├── data/ecg_csv/                              ← raw EEG/ECG drowsiness CSVs (gitignored)
+├── tests/                                     ← pytest unit tests
 ├── pyproject.toml                             ← Python deps (Python 3.12+, uv-managed)
 └── .env.example                               ← required env vars
 ```
@@ -179,8 +204,8 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 
 | Phase | Epic | Closes | Status |
 |---|---|---|---|
-| Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | In progress |
-| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | Pending |
+| Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete |
+| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | A1 confirmed ✓ · OTel across all agents ✓ · A2 pending |
 | Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Pending |
 
 **Slip rules** (per `PLAN.md` section 7): if M1 slips, demo A1 only; if M2 slips, skip dashboard polish; **never compromise on M3** — a working video with rougher code outperforms a polished repo without one.

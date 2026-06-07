@@ -32,6 +32,8 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
+from observability import current_span, traced_tool
+
 # Default models output directory
 MODELS_DIR = "models"
 
@@ -385,6 +387,7 @@ def get_feature_explanations(
         return {"importance": {name: 0.0 for name in feature_names}, "method": f"error: {str(e)}"}
 
 
+@traced_tool("load_features")
 def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
     """Reads CSV, asserts target exists, and returns shape, feature names,
 
@@ -397,6 +400,10 @@ def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
     Returns:
         Dictionary with status, shape, feature_names, class_balance, and recommended_strategy.
     """
+    span = current_span()
+    span.set_attribute("dataset.uri", csv_path)
+    span.set_attribute("dataset.target", target_col)
+
     try:
         if not os.path.exists(csv_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
@@ -409,6 +416,8 @@ def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
             }
 
         n_rows, n_cols = df.shape
+        span.set_attribute("dataset.rows", n_rows)
+        span.set_attribute("dataset.cols", n_cols)
         if n_rows < 10:
             return {
                 "status": "error",
@@ -434,6 +443,7 @@ def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("train_xgboost")
 def train_xgboost(
     csv_path: str,
     target_col: str,
@@ -445,6 +455,13 @@ def train_xgboost(
     calibrate: bool = False,
 ) -> dict[str, Any]:
     """Fits XGBoost classifier with optional tuning, pca, feature selection, and calibration."""
+    span = current_span()
+    span.set_attribute("dataset.uri", csv_path)
+    span.set_attribute("dataset.target", target_col)
+    span.set_attribute("model.algorithm", "xgboost")
+    span.set_attribute("model.path", model_out_path)
+    span.set_attribute("model.tuned", tune)
+
     try:
         if not os.path.exists(csv_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
@@ -496,6 +513,7 @@ def train_xgboost(
             model_to_save = pipeline
 
         train_seconds = time.time() - start_time
+        span.set_attribute("model.train_seconds", train_seconds)
 
         # Extract parameters for reporting
         final_params = {}
@@ -523,6 +541,7 @@ def train_xgboost(
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("train_catboost")
 def train_catboost(
     csv_path: str,
     target_col: str,
@@ -534,6 +553,13 @@ def train_catboost(
     calibrate: bool = False,
 ) -> dict[str, Any]:
     """Fits CatBoost classifier with optional tuning, pca, feature selection, and calibration."""
+    span = current_span()
+    span.set_attribute("dataset.uri", csv_path)
+    span.set_attribute("dataset.target", target_col)
+    span.set_attribute("model.algorithm", "catboost")
+    span.set_attribute("model.path", model_out_path)
+    span.set_attribute("model.tuned", tune)
+
     try:
         if not os.path.exists(csv_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
@@ -584,6 +610,7 @@ def train_catboost(
             model_to_save = pipeline
 
         train_seconds = time.time() - start_time
+        span.set_attribute("model.train_seconds", train_seconds)
 
         # Extract parameters for reporting
         final_params = {}
@@ -611,6 +638,7 @@ def train_catboost(
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("evaluate_holdout")
 def evaluate_holdout(
     csv_path: str,
     target_col: str,
@@ -619,6 +647,11 @@ def evaluate_holdout(
     random_state: int = 42,
 ) -> dict[str, Any]:
     """Loads model, clones/refits on train, tunes threshold, and evaluates on holdout."""
+    span = current_span()
+    span.set_attribute("dataset.uri", csv_path)
+    span.set_attribute("dataset.target", target_col)
+    span.set_attribute("model.path", model_path)
+
     try:
         if not os.path.exists(csv_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
@@ -686,6 +719,13 @@ def evaluate_holdout(
         # Compute Explainability
         explanations = get_feature_explanations(model, X_train, list(X_train.columns))
 
+        span.set_attribute("eval.f1", f1)
+        span.set_attribute("eval.roc_auc", roc_auc)
+        span.set_attribute("eval.optimal_threshold", opt_thresh)
+        span.set_attribute("eval.accuracy", acc)
+        span.set_attribute("eval.precision", prec)
+        span.set_attribute("eval.recall", rec)
+
         return {
             "status": "success",
             "accuracy": acc,
@@ -703,6 +743,7 @@ def evaluate_holdout(
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("evaluate_cv")
 def evaluate_cv(
     csv_path: str,
     target_col: str,
@@ -711,6 +752,11 @@ def evaluate_cv(
     random_state: int = 42,
 ) -> dict[str, Any]:
     """Runs StratifiedKFold, optimizes decision threshold, and returns cross-validated metrics."""
+    span = current_span()
+    span.set_attribute("dataset.uri", csv_path)
+    span.set_attribute("dataset.target", target_col)
+    span.set_attribute("model.path", model_path)
+
     try:
         if not os.path.exists(csv_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
@@ -807,18 +853,28 @@ def evaluate_cv(
         model.fit(X, y)
         explanations = get_feature_explanations(model, X, list(X.columns))
 
+        f1_mean_val = float(np.mean(f1s))
+        roc_auc_mean_val = mean_roc_auc
+
+        span.set_attribute("eval.f1", f1_mean_val)
+        span.set_attribute("eval.roc_auc", roc_auc_mean_val)
+        span.set_attribute("eval.optimal_threshold", opt_thresh)
+        span.set_attribute("eval.accuracy", float(np.mean(accs)))
+        span.set_attribute("eval.precision", float(np.mean(precs)))
+        span.set_attribute("eval.recall", float(np.mean(recs)))
+
         return {
             "status": "success",
             "accuracy_mean": float(np.mean(accs)),
             "accuracy_std": float(np.std(accs)),
-            "f1_mean": float(np.mean(f1s)),
+            "f1_mean": f1_mean_val,
             "f1_std": float(np.std(f1s)),
             "precision_mean": float(np.mean(precs)),
             "precision_std": float(np.std(precs)),
             "recall_mean": float(np.mean(recs)),
             "recall_std": float(np.std(recs)),
             "optimal_threshold": opt_thresh,
-            "roc_auc_mean": mean_roc_auc,
+            "roc_auc_mean": roc_auc_mean_val,
             "roc_auc_std": std_roc_auc,
             "pr_auc_mean": mean_pr_auc,
             "pr_auc_std": std_pr_auc,
@@ -830,6 +886,7 @@ def evaluate_cv(
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("save_model")
 def save_model(
     src_model_path: str,
     dest_model_path: str = "models/drowsiness_model.joblib",
@@ -851,6 +908,10 @@ def save_model(
         shutil.copy(src_model_path, dest_model_path)
         file_size = os.path.getsize(dest_model_path)
 
+        span = current_span()
+        span.set_attribute("model.path", dest_model_path)
+        span.set_attribute("model.size_bytes", file_size)
+
         return {
             "status": "success",
             "saved_path": dest_model_path,
@@ -860,6 +921,7 @@ def save_model(
         return {"status": "error", "error": str(e)}
 
 
+@traced_tool("save_report")
 def save_report(
     report_markdown: str,
     dest_path: str = "models/modeling_report.md",
@@ -877,6 +939,10 @@ def save_report(
         os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
         with open(dest_path, "w", encoding="utf-8") as f:
             f.write(report_markdown)
+
+        span = current_span()
+        span.set_attribute("report.path", dest_path)
+        span.set_attribute("report.char_count", len(report_markdown))
 
         return {
             "status": "success",
