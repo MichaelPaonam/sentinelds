@@ -42,10 +42,10 @@ Every demoed attack follows the same four-phase loop. This is the architectural 
 
 ```mermaid
 flowchart LR
-    E["**1. EMIT**\nOTel spans + custom events\nfrom every tool call"]
-    D["**2. DETECT**\nDavis AI + custom event\ncorrelation raises a Problem"]
-    De["**3. DECIDE**\nSentinel Agent queries MCP,\nreturns ALLOW / WARN / HALT\n(deterministic)"]
-    En["**4. ENFORCE**\nOrchestrator skips tool call;\nquarantines agent / dataset"]
+    E["<b>1. EMIT</b>\nOTel spans + custom events\nfrom every tool call"]
+    D["<b>2. DETECT</b>\nDavis AI + custom event\ncorrelation raises a Problem"]
+    De["<b>3. DECIDE</b>\nSentinel Agent queries MCP,\nreturns ALLOW / WARN / HALT\n(deterministic)"]
+    En["<b>4. ENFORCE</b>\nOrchestrator skips tool call;\nquarantines agent / dataset"]
 
     E --> D --> De --> En
 ```
