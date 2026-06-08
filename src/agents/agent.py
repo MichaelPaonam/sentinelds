@@ -1,4 +1,6 @@
 # root_agent
+import logging
+import warnings
 
 from observability import init_tracing, instrument_genai
 
@@ -14,6 +16,10 @@ from agents.sub_agents.modeling_agent import agent as modeling_agent_module  # n
 from agents.sub_agents.research_agent import (  # noqa: E402
     agent as research_agent_module,
 )
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Clear parents to avoid duplicate parent validation error when composing under root_agent
 research_agent_module.research_agent.parent_agent = None

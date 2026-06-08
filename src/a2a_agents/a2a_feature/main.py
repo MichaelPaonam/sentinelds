@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import warnings
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -15,6 +17,10 @@ import uvicorn  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.feature_agent.agent import feature_agent  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 INTERNAL_PORT = int(os.getenv("PORT", 8080))
 IS_CLOUD_RUN = "K_SERVICE" in os.environ  # Natively injected by Cloud Run

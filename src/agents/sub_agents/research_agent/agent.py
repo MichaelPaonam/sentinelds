@@ -9,6 +9,13 @@ from observability import init_tracing, instrument_genai
 init_tracing(service_name="sentinelds-research-agent", agent_name="research_agent")
 instrument_genai()
 
+import logging  # noqa: E402
+import warnings  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 from google.adk.agents import LlmAgent, SequentialAgent  # noqa: E402
 from google.adk.tools.google_search_tool import GoogleSearchTool  # noqa: E402
 

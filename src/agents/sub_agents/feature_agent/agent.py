@@ -14,6 +14,11 @@ init_tracing(service_name="sentinelds-feature-agent", agent_name="feature_agent"
 instrument_genai()
 
 import logging  # noqa: E402
+import warnings  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 from google.adk.agents import Agent, LlmAgent, SequentialAgent  # noqa: E402
 

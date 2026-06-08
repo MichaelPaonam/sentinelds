@@ -10,6 +10,11 @@ instrument_genai()
 import argparse  # noqa: E402
 import asyncio  # noqa: E402
 import logging  # noqa: E402
+import warnings  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 from google.adk.agents import Agent, LlmAgent  # noqa: E402
 from google.adk.runners import Runner  # noqa: E402
