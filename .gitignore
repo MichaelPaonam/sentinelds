@@ -79,6 +79,7 @@ data/processed/
 *.duckdb
 *.sqlite
 *.db
+*.txt
 
 # Models & artifacts
 models/
