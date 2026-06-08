@@ -69,6 +69,7 @@ app.add_middleware(AgentCardURLMiddleware)
 
 
 if __name__ == "__main__":
+    print(f"Starting Feature Agent on port {INTERNAL_PORT} (Cloud Run: {IS_CLOUD_RUN})")
     uvicorn.run(
         "a2a_agents.a2a_feature.main:app",
         host="0.0.0.0",
