@@ -4,7 +4,7 @@ import warnings
 
 from observability import init_tracing, instrument_genai
 
-init_tracing(service_name="sentinelds-agentic-workflow", agent_name="root_agent")
+init_tracing(service_name="sentinelds-agentic-workflow", agent_name="research_agent")
 instrument_genai()
 
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
