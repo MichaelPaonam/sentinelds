@@ -231,6 +231,7 @@ The threat-modelling and detection design draws on:
 - **OWASP Top 10 for LLM Applications (2025)** — LLM01 (prompt injection), LLM03 (training data poisoning)
 - **MITRE ATLAS™** — AML.T0051 (Indirect Prompt Injection), AML.T0020 (Poison Training Data)
 - **Simon Willison** — practical writeups on indirect prompt injection
+- **[google/adk-samples](https://github.com/google/adk-samples)** — ADK sub-agent patterns referenced during implementation of the Research, Feature Engineering, and Modelling agents
 
 Detailed citations in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md).
 
