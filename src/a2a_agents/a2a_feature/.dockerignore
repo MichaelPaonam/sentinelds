@@ -7,6 +7,7 @@ __pycache__/
 dist/
 build/
 .eggs/
+.adk/
 
 # Virtual envs
 .venv/
@@ -34,3 +35,7 @@ htmlcov/
 
 # Misc
 *.log
+
+# agent.py not needed in the cloud run container - relevant in local setup
+./agent.py
+src/a2a_agents/a2a_feature/agent.py
