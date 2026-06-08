@@ -1,4 +1,9 @@
+import json
 import os
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from observability import init_tracing, instrument_genai
 
@@ -11,28 +16,56 @@ from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.research_agent.agent import research_agent  # noqa: E402
 
-PUBLIC_HOST = os.getenv("RESEARCH_AGENT_PUBLIC_HOST", "localhost")
-PUBLIC_PROTOCOL = os.getenv("RESEARCH_AGENT_PUBLIC_PROTOCOL", "http")
+INTERNAL_PORT = int(os.getenv("PORT", 8080))
+IS_CLOUD_RUN = "K_SERVICE" in os.environ  # Natively injected by Cloud Run
 
-RUN_PORT = int(os.getenv("PORT", 8080))
-
-# Wrap your internal agent instance
 a2a_research_agent = to_a2a(
-    agent=research_agent,
-    host=PUBLIC_HOST,
-    port=RUN_PORT,
-    protocol=PUBLIC_PROTOCOL
+    agent=research_agent, host="localhost", port=INTERNAL_PORT, protocol="http"
 )
 
-# Start the actual container network listener loop
-if __name__ == "__main__":
-    # If using modern v1+ layout variations, the app object exposes a build method:
-    # app_target = a2a_research_agent.build() if hasattr(a2a_research_agent, 'build') else a2a_research_agent
 
-    print("Launching Local A2A Web Service Container...")
+class AgentCardURLMiddleware(BaseHTTPMiddleware):
+    """Rewrites the `url` field of the agent card to match the inbound host."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path != "/.well-known/agent-card.json":
+            return response
+
+        host_header = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        if not host_header:
+            return response
+
+        protocol = "https" if IS_CLOUD_RUN else "http"
+        if IS_CLOUD_RUN and ":" in host_header:
+            host_header = host_header.split(":")[0]
+
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        try:
+            card_data = json.loads(body)
+            card_data["url"] = f"{protocol}://{host_header}"
+            body = json.dumps(card_data).encode()
+        except Exception:
+            pass  # return original body untouched on any parse error
+
+        headers = dict(response.headers)
+        headers["content-length"] = str(len(body))
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=headers,
+            media_type="application/json",
+        )
+
+
+app = a2a_research_agent
+app.add_middleware(AgentCardURLMiddleware)
+
+
+if __name__ == "__main__":
     uvicorn.run(
-        "a2a_agents.a2a_research.main:a2a_research_agent",
+        "a2a_agents.a2a_research.main:app",
         host="0.0.0.0",
-        port=RUN_PORT,
-        factory=False
+        port=INTERNAL_PORT,
+        factory=False,
     )
