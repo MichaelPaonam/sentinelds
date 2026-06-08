@@ -71,7 +71,7 @@ feature_agent = SequentialAgent(
 )
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model=DEFAULT_MODEL,
     name="root_agent",
     sub_agents=[feature_agent],
 )

@@ -104,7 +104,7 @@ async def run_standalone(features_csv: str, target_col: str) -> None:
 
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model=DEFAULT_MODEL,
     name="root_agent",
     sub_agents=[modeling_agent],
 )
