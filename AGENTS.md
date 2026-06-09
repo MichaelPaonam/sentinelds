@@ -9,6 +9,14 @@
 
 When implementation lands, keep the documented architecture intact: Research, Feature Engineering, Modelling, and Sentinel components should live in clearly separated modules. Store large datasets, traces, models, and demo recordings in ignored paths such as `data/`, `traces/`, `models/`, and `demo/recordings/`.
 
+## Karpathy-Inspired Coding & Execution Principles
+These four core principles combat common LLM coding pitfalls (such as wrong assumptions, overengineering, or side-effect edits). Always apply them to ensure surgical, clean, and senior-level implementation:
+
+- **Think Before Coding**: Don't assume. Don't hide confusion. Surface tradeoffs. State assumptions explicitly. If multiple interpretations exist, ask rather than pick silently.
+- **Simplicity First**: Write the minimum code that solves the problem. Nothing speculative. No single-use abstractions or unused configurability. If 200 lines could be 50, rewrite it.
+- **Surgical Changes**: Touch only what you must. Clean up only your own mess. Match existing codebase style. Every changed line must trace directly to the requested task. Do not refactor adjacent code.
+- **Goal-Driven Execution**: Define clear success criteria (e.g. tests, specific metrics). State a brief step-by-step plan before execution, and loop independently until verified.
+
 ## Build, Test, and Development Commands
 No runnable application, build script, or test suite is checked in yet. Until scaffolding is added, contributors should use:
 
