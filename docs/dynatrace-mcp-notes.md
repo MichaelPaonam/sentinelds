@@ -1,8 +1,24 @@
 # Dynatrace MCP — observed response shapes
 
-This file pins the JSON shapes returned by the Dynatrace MCP Server tools that the [Sentinel Agent](../src/sentinel/dynatrace_mcp.py) depends on. The shapes below are starting placeholders derived from the upstream `@dynatrace-oss/dynatrace-mcp-server` README and Dynatrace API docs; replace each block with a verbatim capture from the live tenant the first time `src/smoke/sentinel_mcp_smoke.py` runs successfully.
+> **Transport update (2026-06-09).** The Sentinel client now connects to the
+> Dynatrace **Remote** MCP Server via Streamable HTTP, not the local Node
+> stdio subprocess. The response shapes documented below were captured
+> against the local server v1.8.6. The remote server uses **different tool
+> names and a different response structure** — both confirmed during the
+> migration spike (see `docs/migration_plan.md`):
+>
+> * `list_problems` → `query-problems`; `execute_dql` → `execute-dql`
+> * DQL arg key: `dqlStatement` → `dqlQueryString`
+> * Both tools return **3 TextContent blocks** (metadata / types / records)
+>   rather than a single JSON envelope. Records are in `block[2]` under the
+>   prefix `"Query result records:\n"`.
+>
+> If you observe a shape difference on the remote path, update this file
+> with a verbatim capture under the affected tool's section.
 
-> **Why this file exists.** Issue [#23](https://github.com/MichaelPaonam/sentinelds/issues/23) requires us to document response shapes so downstream defense logic can be built against a stable contract. The decision to pick the Local Dynatrace MCP Server (and the fallbacks if it fails) is in [`dynatrace-mcp-options.md`](dynatrace-mcp-options.md).
+This file pins the JSON shapes returned by the Dynatrace MCP Server tools that the [Sentinel Agent](../src/sentinel/dynatrace_mcp.py) depends on. The shapes below were captured against the local server v1.8.6; the remote server shape is described in the note above.
+
+> **Why this file exists.** Issue [#23](https://github.com/MichaelPaonam/sentinelds/issues/23) requires us to document response shapes so downstream defense logic can be built against a stable contract. The decision to use the Remote Dynatrace MCP Server (and the fallbacks if it fails) is in [`dynatrace-mcp-options.md`](dynatrace-mcp-options.md).
 
 ---
 
