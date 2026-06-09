@@ -5,7 +5,7 @@
 > stdio subprocess. The response shapes documented below were captured
 > against the local server v1.8.6. The remote server uses **different tool
 > names and a different response structure** — both confirmed during the
-> migration spike (see `docs/migration_plan.md`):
+> migration spike:
 >
 > * `list_problems` → `query-problems`; `execute_dql` → `execute-dql`
 > * DQL arg key: `dqlStatement` → `dqlQueryString`

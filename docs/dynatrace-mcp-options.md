@@ -92,7 +92,7 @@ This phrasing in the user's prompt refers to the *catalogue of tools the Dynatra
 
 ## Recommendation
 
-**The Sentinel Agent connects to the Dynatrace Remote MCP Server via Streamable HTTP transport, authenticated with a `DT_PLATFORM_TOKEN` env var. The local Node stdio server (`@dynatrace-oss/dynatrace-mcp-server`) was the original choice but has been superseded — see `docs/migration_plan.md` for the full rationale.**
+**The Sentinel Agent connects to the Dynatrace Remote MCP Server via Streamable HTTP transport, authenticated with a `DT_PLATFORM_TOKEN` env var. The local Node stdio server (`@dynatrace-oss/dynatrace-mcp-server`) was the original choice but has been superseded.**
 
 - **Why remote is now primary.** The local server is in maintenance mode (upstream issue #496); Dynatrace steers new users to the Remote MCP Server. The migration spike (2026-06-09) confirmed the remote server exposes the equivalent problem-query and DQL tools and returns parseable responses.
 - **Tool name changes (spike-confirmed).** The remote server uses kebab-case names: `query-problems` (was `list_problems`) and `execute-dql` (was `execute_dql`); the DQL argument key is `dqlQueryString` (was `dqlStatement`). Response shape is 3 TextContent blocks; records are in block[2] under prefix `"Query result records:\n"`. These are handled transparently in `dynatrace_mcp.py` — public function signatures (`list_open_problems`, `run_dql`) are unchanged.

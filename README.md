@@ -141,8 +141,7 @@ sentinelds/
 │   ├── ai-security-threat-modelling.md        ← AISMM pillars, MITRE ATLAS, defense loop
 │   ├── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
 │   ├── dynatrace-mcp-notes.md                 ← Dynatrace MCP spike: tool shapes, response schemas
-│   ├── dynatrace-mcp-options.md               ← MCP connectivity options and trade-offs
-│   └── migration_plan.md                      ← stdio → remote MCP migration plan
+│   └── dynatrace-mcp-options.md               ← MCP connectivity options and trade-offs
 ├── src/
 │   ├── agents/
 │   │   ├── agent.py                           ← root SequentialAgent (research → features → modeling)
