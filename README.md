@@ -22,7 +22,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
-| **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Custom event on injection signature → Davis Problem → Sentinel HALT on next risky call |
+| **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
 | **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
@@ -38,19 +38,44 @@ This is the **point**: model-layer safety is necessary but insufficient for agen
 
 ## The defense loop
 
-Every demoed attack follows the same four-phase loop. This is the architectural claim of the project:
+Both attacks share the same four-phase structure, but the detection and decision paths differ:
+
+### A1 — Indirect prompt injection (local-first)
 
 ```mermaid
 flowchart LR
-    E["<b>1. EMIT</b>\nOTel spans + custom events\nfrom every tool call"]
-    D["<b>2. DETECT</b>\nDavis AI + custom event\ncorrelation raises a Problem"]
-    De["<b>3. DECIDE</b>\nSentinel Agent queries MCP,\nreturns ALLOW / WARN / HALT\n(deterministic)"]
-    En["<b>4. ENFORCE</b>\nOrchestrator skips tool call;\nquarantines agent / dataset"]
+    E["<b>1. EMIT</b>\nOTel span on fetch_url\ncall + content hash"]
+    D["<b>2. DETECT</b>\nLocal injection detector\nscans fetched content;\ncustom event POSTed to Dynatrace"]
+    De["<b>3. DECIDE</b>\nSentinel.notify() flips\nSentinelSession.compromised=True\nlocally — O(1), no MCP wait\n(MCP queried best-effort after)"]
+    En["<b>4. ENFORCE</b>\n@sentinel_gate raises PermissionError\nbefore next fetch_url executes"]
 
     E --> D --> De --> En
 ```
 
-Sentinel's decision is **deterministic** (rule-based on Problem state, not LLM-decided) and **fail-closed** (MCP unreachable → HALT for training/egress). A prompt-injected agent cannot talk Sentinel out of halting.
+The halt decision is **local and immediate** — `@sentinel_gate` reads a flag set by the injection detector. Davis AI and MCP are not in the critical path; they provide dashboard signal after the fact.
+
+### A2 — Data poisoning (MCP-backed)
+
+```mermaid
+flowchart LR
+    E["<b>1. EMIT</b>\ndataset.stats.* metrics\n+ SHA-256 spans on CSV ingest"]
+    D["<b>2. DETECT</b>\nDavis AI baselines metrics;\nraises Problem on drift"]
+    De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(list_problems, execute_dql)\nreturns HALT"]
+    En["<b>4. ENFORCE</b>\nSentinel halts training tool call;\ndataset SHA-256 quarantined"]
+
+    E --> D --> De --> En
+```
+
+Davis AI and MCP **are** in the critical path here — there is no local detector for CSV drift. The Sentinel queries Dynatrace Problems before allowing the training tool to run.
+
+### Why two paths?
+
+| | A1 — Prompt injection | A2 — Data poisoning |
+|---|---|---|
+| Detector | Local regex (injection_detector) | Davis AI (metric drift) |
+| Decision latency | O(1) local flag | MCP round-trip |
+| MCP role | Best-effort enrichment | Required gate |
+| Fails closed if MCP down? | Yes — local flag is already set | Yes — `is_risky("train") → HALT` |
 
 ## Maturity claim
 
@@ -78,7 +103,11 @@ flowchart TD
         end
 
         OTel["OpenTelemetry Layer\nLLM · tool · MCP · I/O spans"]
+        ID["Injection Detector\nlocal regex scan on fetch_url\n→ SentinelSession.compromised"]
+        SG["@sentinel_gate\nO(1) flag check on every tool call"]
 
+        RA -- "fetch_url" --> ID
+        ID -- "notify()" --> SG
         RA -- tool calls --> OTel
         FA -- tool calls --> OTel
         MA -- tool calls --> OTel
@@ -90,10 +119,12 @@ flowchart TD
         DT["Traces · Davis AI · Problems"]
     end
 
-    DT -- "MCP (list_problems, execute_dql)" --> SA
+    DT -- "MCP: list_problems\nexecute_dql" --> SA
+    ID -. "best-effort enrichment\n(A1 only)" .-> SA
 
-    SA["Sentinel Agent\nALLOW / WARN / HALT"]
-    SA -. "pre-flight decision" .-> agents
+    SA["Sentinel Agent\npreflight() → ALLOW/WARN/HALT\n(A2 critical path)"]
+    SA -. "pre-flight decision\n(A2: training gate)" .-> FA
+    SG -. "PermissionError\n(A1: next fetch halted)" .-> RA
 ```
 
 Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
@@ -133,12 +164,13 @@ sentinelds/
 │   │   ├── instrumentation.py                 ← once-per-process Google GenAI SDK auto-instrumentation
 │   │   └── tools.py                           ← @trace_tool decorator + tool_span context manager
 │   ├── sentinel/
-│   │   ├── preflight.py                       ← ALLOW/WARN/HALT decision engine
-│   │   └── dynatrace_mcp.py                   ← Dynatrace MCP client
-│   ├── smoke/                                 ← OTel plumbing verification
-│   └── tools/                                 ← fetch_url, feature_tools, modeling_tools, …
+│   │   ├── preflight.py                       ← SentinelSession, Sentinel.notify(), sentinel_gate, ALLOW/WARN/HALT engine
+│   │   ├── session.py                         ← ContextVar-backed session (set/get/clear_sentinel_session)
+│   │   └── dynatrace_mcp.py                   ← Dynatrace MCP client (list_open_problems, run_dql)
+│   ├── smoke/                                 ← OTel + observer pattern smoke tests
+│   └── tools/                                 ← fetch_url (@sentinel_gate wired), feature_tools, modeling_tools, …
 ├── data/ecg_csv/                              ← raw EEG/ECG drowsiness CSVs (gitignored)
-├── tests/                                     ← pytest unit tests
+├── tests/                                     ← pytest unit + integration tests (test_sentinel_session, test_observer_flow, …)
 ├── pyproject.toml                             ← Python deps (Python 3.12+, uv-managed)
 └── .env.example                               ← required env vars
 ```
@@ -205,6 +237,7 @@ PYTHONPATH=src uv run python -m smoke.dynatrace_smoke_test    # sends one manual
 PYTHONPATH=src uv run python -m smoke.verify_smoke_test       # confirms it landed in the tenant
 PYTHONPATH=src uv run python -m smoke.dynatrace_direct_smoke_test  # direct API health check
 PYTHONPATH=src uv run python -m smoke.sentinel_mcp_smoke      # MCP connectivity + Sentinel preflight
+PYTHONPATH=src uv run python -m smoke.observer_smoke          # observer pattern: detect → flag → halt (requires attack server on :8001)
 ```
 
 ### Run the end-to-end demo
@@ -212,8 +245,8 @@ PYTHONPATH=src uv run python -m smoke.sentinel_mcp_smoke      # MCP connectivity
 The attack server must be running before the e2e pipeline (it serves the A1 malicious paper payload):
 
 ```bash
-# Terminal 1 — start the fake paper API (A1 attack server)
-PYTHONPATH=src uv run python -m attack_server.server
+# Terminal 1 — start the fake paper API (A1 attack server, port 8001)
+uvicorn attack_server.server:app --port 8001 --app-dir src
 
 # Terminal 2 — run the full pipeline (research → features → modeling)
 PYTHONPATH=src uv run python -m e2e.run_demo
@@ -247,7 +280,7 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 | Phase | Epic | Closes | Status |
 |---|---|---|---|
 | Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete |
-| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | A1 confirmed ✓ · OTel across all agents ✓ · A2 pending |
+| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | A1 confirmed ✓ · Observer pattern (detect→flag→halt) ✓ · A2 pending |
 | Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Pending |
 
 **Slip rules** (per `PLAN.md` section 7): if M1 slips, demo A1 only; if M2 slips, skip dashboard polish; **never compromise on M3** — a working video with rougher code outperforms a polished repo without one.
