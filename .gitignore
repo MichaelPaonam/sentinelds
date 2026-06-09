@@ -87,6 +87,8 @@ models/
 *.joblib
 *.onnx
 mlruns/
+catboost_info/
+
 
 # OpenTelemetry / traces dumps
 traces/
