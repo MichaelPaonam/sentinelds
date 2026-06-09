@@ -137,6 +137,7 @@ async def run_demo(
                         text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
                         print(f"\n[{author}] FINAL:\n{text.strip()}\n")
                 else:
+                    # Stream intermediate text events for visibility
                     raw_text = getattr(event, "text", None)
                     if raw_text:
                         print(f"[{author}] {str(raw_text).strip()}")
