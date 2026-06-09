@@ -23,7 +23,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
 | **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
-| **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
+| **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel `preflight()` queries MCP (`query-problems`, `execute-dql`) → HALT before training tool executes |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
 
@@ -58,10 +58,10 @@ The halt decision is **local and immediate** — `@sentinel_gate` reads a flag s
 
 ```mermaid
 flowchart LR
-    E["<b>1. EMIT</b>\ndataset.stats.* metrics\n+ SHA-256 spans on CSV ingest"]
+    E["<b>1. EMIT</b>\ndataset.stats.* metrics\non CSV ingest"]
     D["<b>2. DETECT</b>\nDavis AI baselines metrics;\nraises Problem on drift"]
-    De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(list_problems, execute_dql)\nreturns HALT"]
-    En["<b>4. ENFORCE</b>\nSentinel halts training tool call;\ndataset SHA-256 quarantined"]
+    De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(query-problems, execute-dql)\nreturns HALT"]
+    En["<b>4. ENFORCE</b>\nSentinel halts training tool call\n(is_risky(\"train\") → HALT)"]
 
     E --> D --> De --> En
 ```
@@ -119,7 +119,7 @@ flowchart TD
         DT["Traces · Davis AI · Problems"]
     end
 
-    DT -- "MCP: list_problems\nexecute_dql" --> SA
+    DT -- "MCP: query-problems\nexecute-dql" --> SA
     ID -. "best-effort enrichment\n(A1 only)" .-> SA
 
     SA["Sentinel Agent\npreflight() → ALLOW/WARN/HALT\n(A2 critical path)"]
@@ -166,7 +166,7 @@ sentinelds/
 │   ├── sentinel/
 │   │   ├── preflight.py                       ← SentinelSession, Sentinel.notify(), sentinel_gate, ALLOW/WARN/HALT engine
 │   │   ├── session.py                         ← ContextVar-backed session (set/get/clear_sentinel_session)
-│   │   └── dynatrace_mcp.py                   ← Dynatrace MCP client (list_open_problems, run_dql)
+│   │   └── dynatrace_mcp.py                   ← Dynatrace Remote MCP client (list_open_problems, run_dql)
 │   ├── smoke/                                 ← OTel + observer pattern smoke tests
 │   └── tools/                                 ← fetch_url (@sentinel_gate wired), feature_tools, modeling_tools, …
 ├── data/ecg_csv/                              ← raw EEG/ECG drowsiness CSVs (gitignored)
@@ -219,7 +219,8 @@ DYNATRACE_API_URL="https://<your-environment-id>.live.dynatrace.com"
 DYNATRACE_API_TOKEN="<your-dynatrace-api-token>"
 
 # Dynatrace Platform API — used by the Sentinel Agent's MCP client
-# (separate from OTLP ingest; token scope: environment-api:problems:read, storage:query:read)
+# (separate from OTLP ingest; token scopes: mcp-gateway:servers:invoke,
+# mcp-gateway:servers:read, storage:buckets:read, storage:events:read, storage:logs:read)
 DT_ENVIRONMENT="https://<your-environment-id>.apps.dynatrace.com"
 DT_PLATFORM_TOKEN="<your-dynatrace-platform-token>"
 ```
@@ -228,7 +229,7 @@ DT_PLATFORM_TOKEN="<your-dynatrace-platform-token>"
 
 > **Two separate Dynatrace tokens are required:**
 > - `DYNATRACE_API_TOKEN` — classical API token for OTLP ingest (traces/metrics/logs)
-> - `DT_PLATFORM_TOKEN` — Platform API OAuth token used by the Sentinel Agent to query Problems via MCP (`list_problems`, `execute_dql`)
+> - `DT_PLATFORM_TOKEN` — Platform API token used by the Sentinel Agent to query the **Remote** Dynatrace MCP Server (`query-problems`, `execute-dql`)
 
 ### Verify Dynatrace OTLP plumbing
 
@@ -236,7 +237,7 @@ DT_PLATFORM_TOKEN="<your-dynatrace-platform-token>"
 PYTHONPATH=src uv run python -m smoke.dynatrace_smoke_test    # sends one manual span
 PYTHONPATH=src uv run python -m smoke.verify_smoke_test       # confirms it landed in the tenant
 PYTHONPATH=src uv run python -m smoke.dynatrace_direct_smoke_test  # direct API health check
-PYTHONPATH=src uv run python -m smoke.sentinel_mcp_smoke      # MCP connectivity + Sentinel preflight
+PYTHONPATH=src uv run python -m smoke.sentinel_remote_mcp_smoke    # remote MCP connectivity + Sentinel preflight
 PYTHONPATH=src uv run python -m smoke.observer_smoke          # observer pattern: detect → flag → halt (requires attack server on :8001)
 ```
 
