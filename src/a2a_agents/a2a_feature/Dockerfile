@@ -1,17 +1,29 @@
 FROM python:3.12-slim
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src
+
 WORKDIR /app
 
-COPY a2a_agents/a2a_feature/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 1. Install uv binary directly from its distribution image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-COPY a2a_agents/a2a_feature/ /app/a2a_agents/a2a_feature/
-COPY agents/sub_agents/feature_agent/ /app/agents/sub_agents/feature_agent/
-COPY core/ /app/core/
-COPY observability/ /app/observability/
-COPY tools/ /app/tools/
+# 2. Copy BOTH dependency configuration files to cache this layer perfectly
+COPY pyproject.toml uv.lock ./
 
-ENV PORT=8080
-ENV PYTHONPATH=/app
+# 3. Compile and freeze dependencies to the system space
+RUN uv pip compile pyproject.toml -o requirements.txt && \
+    uv pip install --system -r requirements.txt
 
-CMD ["uvicorn", "a2a_agents.a2a_feature.main:a2a_feature_agent", "--host", "0.0.0.0", "--port", "8080"]
+# 4. Explicitly map your internal package roots (Clean & Isolated)
+COPY src/core/ /app/src/core/
+COPY src/tools/ /app/src/tools/
+COPY src/observability/ /app/src/observability/
+COPY src/agents/sub_agents/feature_agent/ /app/src/agents/sub_agents/feature_agent/
+COPY src/a2a_agents/a2a_feature/ /app/src/a2a_agents/a2a_feature/
+
+EXPOSE 8080
+
+# 5. Launch using your structural layout path
+CMD ["python", "src/a2a_agents/a2a_feature/main.py"]

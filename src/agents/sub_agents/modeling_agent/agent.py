@@ -10,6 +10,11 @@ instrument_genai()
 import argparse  # noqa: E402
 import asyncio  # noqa: E402
 import logging  # noqa: E402
+import warnings  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 from google.adk.agents import Agent, LlmAgent  # noqa: E402
 from google.adk.runners import Runner  # noqa: E402
@@ -104,7 +109,7 @@ async def run_standalone(features_csv: str, target_col: str) -> None:
 
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model=DEFAULT_MODEL,
     name="root_agent",
     sub_agents=[modeling_agent],
 )

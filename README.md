@@ -180,21 +180,63 @@ Copy `.env.example` to `.env` and fill in:
 # Google Cloud / Vertex AI for Gemini
 GOOGLE_GENAI_USE_VERTEXAI="true"
 GOOGLE_CLOUD_PROJECT="<your-gcp-project-id>"
-GOOGLE_CLOUD_LOCATION="asia-southeast1"
+GOOGLE_CLOUD_LOCATION="europe-west4"        # matches deploy script default
 
 # Dynatrace OTLP ingest (token scopes: openTelemetryTrace.ingest, metrics.ingest, logs.ingest)
 DYNATRACE_API_URL="https://<your-environment-id>.live.dynatrace.com"
 DYNATRACE_API_TOKEN="<your-dynatrace-api-token>"
+
+# Dynatrace Platform API — used by the Sentinel Agent's MCP client
+# (separate from OTLP ingest; token scope: environment-api:problems:read, storage:query:read)
+DT_ENVIRONMENT="https://<your-environment-id>.apps.dynatrace.com"
+DT_PLATFORM_TOKEN="<your-dynatrace-platform-token>"
 ```
 
 `gcloud` must be authenticated to the same project. Vertex AI / Gemini APIs must be enabled.
 
+> **Two separate Dynatrace tokens are required:**
+> - `DYNATRACE_API_TOKEN` — classical API token for OTLP ingest (traces/metrics/logs)
+> - `DT_PLATFORM_TOKEN` — Platform API OAuth token used by the Sentinel Agent to query Problems via MCP (`list_problems`, `execute_dql`)
+
 ### Verify Dynatrace OTLP plumbing
 
 ```bash
-python src/smoke/dynatrace_smoke_test.py    # sends one manual span
-python src/smoke/verify_smoke_test.py       # confirms it landed in the tenant
+PYTHONPATH=src uv run python -m smoke.dynatrace_smoke_test    # sends one manual span
+PYTHONPATH=src uv run python -m smoke.verify_smoke_test       # confirms it landed in the tenant
+PYTHONPATH=src uv run python -m smoke.dynatrace_direct_smoke_test  # direct API health check
+PYTHONPATH=src uv run python -m smoke.sentinel_mcp_smoke      # MCP connectivity + Sentinel preflight
 ```
+
+### Run the end-to-end demo
+
+The attack server must be running before the e2e pipeline (it serves the A1 malicious paper payload):
+
+```bash
+# Terminal 1 — start the fake paper API (A1 attack server)
+PYTHONPATH=src uv run python -m attack_server.server
+
+# Terminal 2 — run the full pipeline (research → features → modeling)
+PYTHONPATH=src uv run python -m e2e.run_demo
+
+# Override defaults via env vars:
+# E2E_PAPER_URL   default: http://localhost:8001/papers
+# E2E_DEFAULT_CSV default: data/ecg_csv/ddd/01M_1.csv
+# E2E_TARGET_COL  default: label
+```
+
+---
+
+## Deployment
+
+The three A2A agents (`a2a_research`, `a2a_feature`, `a2a_modeling`) are each packaged as Docker containers under `src/a2a_agents/`.
+
+### Cloud Run (current approach)
+
+We deploy on **Google Cloud Run** with **Secret Manager** enabled. Each service is built and pushed to Artifact Registry, then deployed with secrets mounted as environment variables via `--set-secrets`. See the `deploy_a2a_*.sh` scripts at the repo root for the exact `gcloud run deploy` invocations.
+
+### Agent Runtime (not used)
+
+We attempted deployment on **Vertex AI Agent Runtime** but could not get it working — every deploy attempt threw an error indicating `AdkApp` was not detected on the Vertex AI endpoint. This appears to be a packaging/entry-point detection issue specific to how ADK registers the app with the runtime. Switching to Cloud Run unblocked us and is now the canonical deployment path.
 
 ---
 
