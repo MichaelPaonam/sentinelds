@@ -8,20 +8,31 @@ Structure:
 
 from __future__ import annotations
 
-import logging
+from observability import init_tracing, instrument_genai
 
-from google.adk.agents import Agent, LlmAgent, SequentialAgent
+init_tracing(service_name="sentinelds-feature-agent", agent_name="feature_agent")
+instrument_genai()
 
-from agents.sub_agents.feature_agent.prompt import (
+import logging  # noqa: E402
+import warnings  # noqa: E402
+
+logging.disable(level=logging.WARNING)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+from google.adk.agents import Agent, LlmAgent, SequentialAgent  # noqa: E402
+
+from agents.sub_agents.feature_agent.prompt import (  # noqa: E402
     DATA_PROFILER_INSTRUCTION,
     FEATURE_ENGINEER_INSTRUCTION,
 )
-from tools.feature_tools import csv_read, find_files, pandas_profile
-from tools.file_creation_tools import make_csv_file
+from core.config import settings  # noqa: E402
+from tools.feature_tools import csv_read, find_files, pandas_profile  # noqa: E402
+from tools.file_creation_tools import make_csv_file  # noqa: E402
 
 logger = logging.getLogger("sentinelds.feature_agent")
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = settings.DEFAULT_MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +53,7 @@ feature_transformer = LlmAgent(
     name="feature_transformer",
     description="Transforms, normalizes, scales features, and saves the clean dataset.",
     instruction=FEATURE_ENGINEER_INSTRUCTION,
-    tools=[make_csv_file],
+    tools=[csv_read, pandas_profile, make_csv_file],
     output_key="feature_engineering_report",
 )
 
@@ -65,7 +76,7 @@ feature_agent = SequentialAgent(
 )
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model=DEFAULT_MODEL,
     name="root_agent",
     sub_agents=[feature_agent],
 )

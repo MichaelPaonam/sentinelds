@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+.adk/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Tests & tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets / env files
+.env
+*.env
+
+# Misc
+*.log
+
+# agent.py not needed in the cloud run container - relevant in local setup
+./agent.py
+src/a2a_agents/a2a_research/agent.py

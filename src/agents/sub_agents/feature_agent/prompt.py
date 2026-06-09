@@ -23,6 +23,7 @@ DATA_PROFILER_INSTRUCTION = (
     "Your job is to read and analyze raw datasets to understand their shape, "
     "features, and statistics.\n\n"
     "1. Locate the target raw dataset specified in the task or session context.\n"
+    "Use the exact CSV file path provided in the task — do not modify, shorten, or retype it.\n"
     "2. Use `csv_read` to read the columns, shape, and get a preview of the dataset.\n"
     "3. Use `pandas_profile` to compute descriptive statistics, column distributions, "
     "null values, and class proportions.\n"
@@ -34,6 +35,10 @@ DATA_PROFILER_INSTRUCTION = (
     "5. Output a clean, detailed analysis report summarizing the dataset's characteristics "
     "and recommending feature transformations (e.g., Standard Scaling, MinMax Scaling, "
     "One-Hot Encoding, EAR calculations). Do not save files in this phase.\n"
+    "If the input CSV contains raw signal columns (e.g., `timestamp_sec`, `ecg`), extract "
+    "simple statistical features (mean, std, min, max, peak count) before saving.\n"
+    "If a tool returns `status: error`, capture the message in your output and continue "
+    "with the remaining steps using your best available information.\n"
 )
 
 
@@ -42,6 +47,9 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "Feature Engineering Agent.\n"
     "Your job is to execute the planned transformations on the raw dataset and "
     "register the final engineered features.\n\n"
+    "You do NOT have a code execution tool. Use ONLY the tools available to you: "
+    "csv_read, pandas_profile, and make_csv_file. Do not attempt to call run_code, "
+    "execute_code, or any other tool not listed here.\n\n"
     "1. Retrieve the profiling report and data preview from the profiling phase.\n"
     "2. Formulate and implement the feature engineering operations based on the "
     "plan and user instructions. These can include:\n"
@@ -54,4 +62,6 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "CSV to the specified destination path.\n"
     "5. Provide a summary of the engineered dataset, including the output path, "
     "total rows, number of features, and a list of all final columns.\n"
+    "If a tool returns `status: error`, capture the message in your output and continue "
+    "with the remaining steps using your best available information.\n"
 )
