@@ -137,6 +137,7 @@ RUN uv pip compile pyproject.toml -o requirements.txt && \\
 
 COPY src/core/ /app/src/core/
 COPY src/observability/ /app/src/observability/
+COPY src/sentinel/ /app/src/sentinel/
 COPY src/orchestrator/ /app/src/orchestrator/
 COPY src/main.py /app/src/main.py
 
@@ -149,9 +150,9 @@ EOF
 gcloud run deploy sentinelds-orchestrator \
   --source=. \
   --region=europe-west4 \
-  --project=sentinelds \
+  --project=$GOOGLE_CLOUD_PROJECT \
   --allow-unauthenticated \
-  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=sentinelds,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=https://sentinelds-a2a-research-463175257419.europe-west4.run.app" \
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=https://sentinelds-a2a-research-463175257419.europe-west4.run.app" \
   --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest"
 
 # cleanup runs via the EXIT trap above
