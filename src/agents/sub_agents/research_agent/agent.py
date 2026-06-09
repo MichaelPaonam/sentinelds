@@ -51,3 +51,5 @@ research_agent = SequentialAgent(
     description="Surveys literature via search then fetches and enriches from referenced URLs.",
     sub_agents=[lit_searcher, lit_fetcher],
 )
+
+root_agent = research_agent
