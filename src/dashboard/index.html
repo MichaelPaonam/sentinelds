@@ -45,10 +45,10 @@
 
                 <div class="scenario-selectors-retro" id="scenario-selector-group">
                     <button class="btn btn-scenario active" id="btn-scenario-a1" data-scenario="A1">
-                        [ F1: Scenario A1 (Days 7-9) ]
+                        [ F1: Scenario A1 ]
                     </button>
                     <button class="btn btn-scenario" id="btn-scenario-a2" data-scenario="A2">
-                        [ F2: Scenario A2 (Days 10-11) ]
+                        [ F2: Scenario A2 ]
                     </button>
                 </div>
                 
@@ -153,15 +153,11 @@
                 </div>
                 
                 <div class="pane-content scroll-table-container">
-                    <!-- Standard Monospace ASCII Table -->
                     <pre class="ascii-table-wrapper" id="ascii-decision-table">
 +----------+-----------------+---------------------------+---------------------+---------+
 | TIME     | SOURCE PROCESS  | INTERCEPTED SYSTEM CALL   | SECURITY RULE       | VERDICT |
 +----------+-----------------+---------------------------+---------------------+---------+
-<tbody id="decision-log-tbody">
-  <!-- Dynamically Populated Rows by App.js -->
-</tbody>
-+----------+-----------------+---------------------------+---------------------+---------+
+<div id="decision-log-tbody"></div>+----------+-----------------+---------------------------+---------------------+---------+
                     </pre>
                 </div>
             </section>

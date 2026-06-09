@@ -192,6 +192,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 6. Set up and Draw Charts
         drawStaticChart(s.driftChart);
+
+        // 7. Update Drift Status Badge
+        if (s.driftChart.anomalyIndexStart !== undefined) {
+            badgeDriftStatus.textContent = currentScenario === 'A1' ? "[ HIGH EGRESS DETECTED ]" : "[ DATASET DRIFT ALARM ]";
+            badgeDriftStatus.className = "pane-badge badge-problem-active";
+        } else {
+            badgeDriftStatus.textContent = "[ STATS COMPLIANT ]";
+            badgeDriftStatus.className = "pane-badge";
+        }
     }
 
     function updateAgentNode(indicatorEl, statusEl, config) {
@@ -242,7 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createDecisionRow(d) {
-        const tr = document.createElement('tr');
+        const tr = document.createElement('div');
+        tr.className = 'ascii-table-row';
         
         const time = pad(d.time, 8);
         
