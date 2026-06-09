@@ -103,7 +103,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 CLAUDE.md
-AGENTS.md
 .mcp.json
 features.csv
 data/ecg_csv/ddd/_e2e_combined.csv
