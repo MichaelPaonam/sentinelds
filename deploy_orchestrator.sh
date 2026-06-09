@@ -1,4 +1,16 @@
 #!/bin/bash
+set -euo pipefail
+
+# Always clean up generated files, even if deploy fails — otherwise a stale
+# Dockerfile/main.py from a previous run could be reused, or a missing
+# Dockerfile could cause gcloud to silently fall back to buildpacks (which
+# produce a different on-disk layout and break agents_dir resolution).
+cleanup() {
+  rm -rf ./src/orchestrator
+  rm -f ./src/main.py
+  rm -f ./Dockerfile
+}
+trap cleanup EXIT
 
 mkdir -p src/orchestrator
 
@@ -13,6 +25,12 @@ from observability import init_tracing, instrument_genai
 
 init_tracing(service_name="sentinelds-agentic-workflow", agent_name="root_agent")
 instrument_genai()
+
+# Patch ADK's A2A→GenAI part converter BEFORE importing any other google.adk.a2a
+# module. ADK callers capture \`convert_a2a_part_to_genai_part\` as a default arg
+# at function-definition time, so the patch must land before RemoteA2aAgent is
+# imported. See src/core/genai_compat.py.
+from core import genai_compat  # noqa: E402,F401
 
 from google.adk.agents import SequentialAgent  # noqa: E402
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
@@ -57,9 +75,10 @@ root_agent = SequentialAgent(
 
 EOF
 
-cat << EOF > src/main.py
+cat << 'EOF' > src/main.py
 import logging
 import os
+import pathlib
 import warnings
 
 import uvicorn
@@ -69,6 +88,10 @@ from observability import init_tracing, instrument_genai
 init_tracing(service_name="sentinelds-agentic-workflow", agent_name="root_agent")
 instrument_genai()
 
+# Patch ADK's A2A→GenAI part converter BEFORE the ADK fast-api / a2a modules
+# are imported. See src/core/genai_compat.py.
+from core import genai_compat  # noqa: E402,F401
+
 from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
 
 logging.disable(level=logging.WARNING)
@@ -77,16 +100,21 @@ warnings.filterwarnings("ignore")
 PORT = int(os.getenv("PORT", 8080))
 SESSION_SERVICE_URI = "sqlite+aiosqlite:///./sessions.db"  # Standard async local session tracking
 
+# Resolve agents_dir relative to this file so it works regardless of CWD
+# or whether the build flattened src/ (Dockerfile vs buildpack layouts).
+HERE = pathlib.Path(__file__).resolve().parent
+AGENTS_DIR = HERE / "orchestrator"
+
 # Extract the Web App UI
 app = get_fast_api_app(
-    agents_dir="./orchestrator",
+    agents_dir=str(AGENTS_DIR),
     session_service_uri=SESSION_SERVICE_URI,
     web=True,
     allow_origins=["*"],
 )
 
 if __name__ == "__main__":
-    print(f"Booting Prototype UI Web Server on port {PORT}...")
+    print(f"Booting Prototype UI Web Server on port {PORT} (agents_dir={AGENTS_DIR})...")
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, factory=False)
 
 EOF
@@ -123,9 +151,7 @@ gcloud run deploy sentinelds-orchestrator \
   --region=europe-west4 \
   --project=sentinelds \
   --allow-unauthenticated \
-  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest,GEMINI_API_KEY=gemini-api-key:latest"
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=sentinelds,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=https://sentinelds-a2a-research-463175257419.europe-west4.run.app" \
+  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest"
 
-rm -rf ./src/orchestrator
-rm ./src/main.py
-rm ./Dockerfile
-
+# cleanup runs via the EXIT trap above
