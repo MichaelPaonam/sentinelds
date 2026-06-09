@@ -279,13 +279,13 @@ def check_and_emit(
     dynatrace_api_url: Optional[str] = None,
     dynatrace_api_token: Optional[str] = None,
 ) -> list[InjectionMatch]:
-    """Scan *content*, set ``prompt.injection_signature`` on the caller's span,
-    and emit a Dynatrace event if matches are found.
+    """Scan *content* and emit a Dynatrace event if injection signatures are found.
 
-    Returns the list of matches (may be empty). The caller is responsible for
-    setting OTel span attributes based on the return value — this function
-    does not touch the active span directly so it stays testable without a
-    live tracer.
+    Does not touch the active OTel span — the caller is responsible for setting
+    ``prompt.injection_signature`` and related span attributes based on the
+    returned matches. This keeps the function testable without a live tracer.
+
+    Returns the list of matches (empty means clean content).
     """
     matches = scan_for_injection(content)
     if not matches:
