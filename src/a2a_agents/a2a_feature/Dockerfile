@@ -20,6 +20,7 @@ RUN uv pip compile pyproject.toml -o requirements.txt && \
 COPY src/core/ /app/src/core/
 COPY src/tools/ /app/src/tools/
 COPY src/observability/ /app/src/observability/
+COPY src/sentinel/ /app/src/sentinel/
 COPY src/agents/sub_agents/feature_agent/ /app/src/agents/sub_agents/feature_agent/
 COPY src/a2a_agents/a2a_feature/ /app/src/a2a_agents/a2a_feature/
 

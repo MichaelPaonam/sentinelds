@@ -1,32 +1,39 @@
 """Dynatrace MCP client for the Sentinel Agent.
 
-This module is the spike output for issue #23: it spawns the upstream
-Dynatrace MCP server (`@dynatrace-oss/dynatrace-mcp-server`) over stdio and
-exposes the two tool calls the Sentinel pre-flight gate needs —
-`list_problems` and `execute_dql` — as plain async Python functions that
-return ``list[dict]``.
+Connects to the **Dynatrace Remote MCP Server** (Streamable HTTP transport)
+at ``{DT_ENVIRONMENT}/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp``,
+authenticated with a Platform Token (``DT_PLATFORM_TOKEN``).
 
-Why this shape (full reasoning in ``docs/dynatrace-mcp-options.md``):
+The Sentinel pre-flight gate uses two tools — ``query-problems`` and
+``execute-dql`` — surfaced as plain async Python functions returning
+``list[dict]``.
 
-* the upstream MCP server has those exact tools as first-class names, so the
-  Sentinel Agent does not need to translate;
-* stdio co-locates the Node subprocess with the Python process — no inbound
-  port, sub-second pre-flight round-trips;
-* auth is via env-loaded ``DT_PLATFORM_TOKEN`` (no hardcoded credentials);
-* the Python ``mcp`` PyPI client SDK is already pinned in
-  ``pyproject.toml``.
+Why remote (full reasoning in ``docs/dynatrace-mcp-options.md`` and
+``docs/migration_plan.md``):
 
-Response shapes are documented in ``docs/dynatrace-mcp-notes.md``. The brief
-version: every tool call returns a ``CallToolResult`` whose ``.content`` is a
-single ``TextContent`` block whose ``.text`` is a JSON string. ``list_problems``
-returns ``{"problems": [...]}``; ``execute_dql`` returns
-``{"records": [...], "metadata": {...}}``. We pull the ``problems`` /
-``records`` array out and return it.
+* the previous local server (``@dynatrace-oss/dynatrace-mcp-server``) is in
+  maintenance mode upstream; Dynatrace's active path is the remote server.
+* no Node subprocess in our process tree — cleaner Cloud Run images, no
+  ``npx`` cold start.
+* same logical operations (problems query, DQL execution), so the Sentinel
+  pre-flight code in ``preflight.py`` is unchanged.
+* auth via env-loaded ``DT_PLATFORM_TOKEN`` (no hardcoded credentials).
 
-Fallback ladder (if the live spike shows the local server is broken or its
-schema has shifted) is in ``docs/dynatrace-mcp-options.md`` — swap transport
-to the Remote MCP Server, then to direct REST, then to a fixture replay for
-the demo video. All four tiers preserve the function signatures below.
+**Shape change from local server (logged here per migration_plan.md §3.2.5):**
+The remote server uses kebab-case tool names and different argument keys:
+
+  * ``list_problems`` → ``query-problems``; arg ``entity`` dropped, arg
+    ``status`` kept; arg ``dqlStatement`` → ``dqlQueryString`` for ``execute-dql``.
+  * Both tools return **3 TextContent blocks** (metadata, types, records)
+    rather than the local server's single JSON envelope. The records block
+    has prefix ``"Query result records:\\n"`` followed by a JSON array.
+
+``list_open_problems`` and ``run_dql`` preserve their public signatures so
+``preflight.py`` and all call sites are unchanged.
+
+Fallback ladder (if the remote server is unreachable during the demo):
+direct REST → fixture replay. Both preserve the function signatures below.
+See ``docs/dynatrace-mcp-options.md`` "Fallback ladder".
 """
 
 from __future__ import annotations
@@ -38,39 +45,41 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncIterator
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import CallToolResult, TextContent
 
 
 @dataclass(frozen=True)
 class DynatraceMCPConfig:
-    """Configuration for spawning the Dynatrace MCP server subprocess.
+    """Configuration for the Dynatrace **Remote** MCP Server.
 
-    Construct via :meth:`from_env` so the platform token is never written into
-    a literal — the upstream server reads ``DT_PLATFORM_TOKEN`` itself, we
-    only forward what the Python process already has in its environment.
+    Connection is HTTP (Streamable HTTP transport) to the Dynatrace-hosted
+    MCP gateway at ``{environment}/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp``.
+    Auth is a bearer Platform Token. No local Node subprocess is spawned.
+
+    Construct via :meth:`from_env`. The platform token is forwarded as a
+    Bearer header on every MCP request and is never logged.
     """
 
     environment: str
     """Dynatrace tenant URL, e.g. ``https://abc12345.apps.dynatrace.com``."""
 
     platform_token: str
-    """Platform Token. Forwarded to the subprocess; never logged."""
+    """Platform Token. Sent as ``Authorization: Bearer <token>``; never logged.
 
-    server_version: str = "1.8.6"
-    """Pinned npm version of ``@dynatrace-oss/dynatrace-mcp-server``.
-
-    The repo is in maintenance mode (upstream issue #496); pin a known-good
-    1.8.x release rather than chasing ``@latest``.
+    Required scopes: ``mcp-gateway:servers:invoke``, ``mcp-gateway:servers:read``,
+    plus the relevant ``storage:*:read`` scopes for the DQL queries the
+    Sentinel pre-flight runs. See ``docs/dynatrace-mcp-options.md``.
     """
 
-    disable_telemetry: bool = True
-    """Opt out of the upstream server's outbound telemetry."""
-
-    grail_budget_gb: int = 50
-    """GB-scanned cap for DQL queries. Default upstream is 1000; we keep it
-    tight because the Sentinel pre-flight runs on every risky tool call."""
+    @property
+    def remote_url(self) -> str:
+        """Full Streamable-HTTP URL of the remote MCP gateway."""
+        return (
+            f"{self.environment.rstrip('/')}"
+            "/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp"
+        )
 
     @classmethod
     def from_env(cls) -> "DynatraceMCPConfig":
@@ -91,82 +100,94 @@ class DynatraceMCPConfig:
         return cls(environment=environment, platform_token=platform_token)
 
 
-def _server_params(cfg: DynatraceMCPConfig) -> StdioServerParameters:
-    """Build the stdio server params for ``mcp.client.stdio.stdio_client``.
-
-    The subprocess inherits *only* the four Dynatrace env vars below, so we
-    don't accidentally leak unrelated credentials from the parent process.
-    """
-    return StdioServerParameters(
-        command="npx",
-        args=["-y", f"@dynatrace-oss/dynatrace-mcp-server@{cfg.server_version}"],
-        env={
-            "DT_ENVIRONMENT": cfg.environment,
-            "DT_PLATFORM_TOKEN": cfg.platform_token,
-            "DT_MCP_DISABLE_TELEMETRY": "true" if cfg.disable_telemetry else "false",
-            "DT_GRAIL_QUERY_BUDGET_GB": str(cfg.grail_budget_gb),
-        },
-    )
-
-
 @asynccontextmanager
 async def dynatrace_session(
     cfg: DynatraceMCPConfig,
 ) -> AsyncIterator[ClientSession]:
-    """Open a long-lived MCP session against the Dynatrace MCP server.
+    """Open a long-lived MCP session against the Dynatrace **Remote** MCP server.
 
     The Sentinel Agent should open this once at startup and reuse the yielded
-    session for every pre-flight call — spawning ``npx`` per call would dwarf
-    the actual tool-call latency.
+    session for every pre-flight call — establishing a fresh HTTP connection
+    per call would dwarf the actual tool-call latency.
+
+    Auth is via ``Authorization: Bearer <DT_PLATFORM_TOKEN>``. The token is
+    forwarded on every request by the Streamable HTTP transport.
     """
-    async with stdio_client(_server_params(cfg)) as (read, write):
+    headers = {"Authorization": f"Bearer {cfg.platform_token}"}
+    async with streamablehttp_client(cfg.remote_url, headers=headers) as (
+        read,
+        write,
+        _close,
+    ):
         async with ClientSession(read, write) as session:
             await session.initialize()
             yield session
 
 
 def _parse_text_content(result: CallToolResult) -> Any:
-    """Extract the JSON payload from a Dynatrace MCP tool result.
+    """Extract the JSON payload from a Dynatrace Remote MCP tool result.
 
-    The Dynatrace server returns a single ``TextContent`` whose ``.text`` is a
-    JSON string. We refuse to silently drop other shapes: if the server ever
-    starts returning multiple content blocks or non-text content (e.g. an
-    ``ImageContent`` chart), we want to know rather than parse the first
-    block and ignore the rest.
+    **Remote server shape (confirmed during migration spike, 2026-06-09):**
+    Both ``query-problems`` and ``execute-dql`` return **3 TextContent blocks**:
 
-    Returns ``None`` for the zero-results sentinel strings the server uses
-    instead of an empty JSON envelope (``"No problems found"`` etc.); the
-    callers map that to an empty list.
+    * block[0]: ``"Query metadata:\\n{...}"``
+    * block[1]: ``"Grail types for the records in the query result:\\n[...]"``
+    * block[2]: ``"Query result records:\\n[...]"`` — the payload we parse
+
+    We extract block[2], strip the ``"Query result records:\\n"`` prefix, and
+    ``json.loads`` the remainder. Empty results return ``"Query result
+    records:\\n[ ]"`` — we map that to ``None`` so callers return ``[]``.
+
+    For backwards-compatibility with tests and fixtures that produce a single
+    TextContent JSON block (the local server shape), we fall back to parsing
+    that single block when only one is present.
     """
     if result.isError:
-        # The server populates content with the error message in this case.
         message = ""
         for block in result.content:
             if isinstance(block, TextContent):
                 message = block.text
                 break
         raise RuntimeError(f"Dynatrace MCP tool call returned isError: {message!r}")
-    if len(result.content) != 1:
-        raise ValueError(f"expected exactly one content block, got {len(result.content)}")
-    block = result.content[0]
-    if not isinstance(block, TextContent):
-        raise TypeError(f"expected TextContent, got {type(block).__name__}")
-    text = block.text.strip()
-    if not text or _is_empty_sentinel(text):
-        return None
-    # The Dynatrace MCP server returns execute_dql results as a markdown
-    # document with the records list inside a ```json ... ``` fence — not as
-    # raw JSON (confirmed during the issue #23 spike, server v1.8.6). Pull
-    # the fenced block out before json.loads.
-    fenced = _extract_json_fence(text)
-    if fenced is not None:
-        return json.loads(fenced)
-    return json.loads(text)
+
+    # Remote server: 3 blocks — records are in block[2]
+    if len(result.content) == 3:
+        records_block = result.content[2]
+        if not isinstance(records_block, TextContent):
+            raise TypeError(
+                f"expected TextContent for records block, got {type(records_block).__name__}"
+            )
+        text = records_block.text
+        # Strip the "Query result records:\n" prefix
+        prefix = "Query result records:\n"
+        if text.startswith(prefix):
+            payload_text = text[len(prefix) :].strip()
+        else:
+            payload_text = text.strip()
+        if not payload_text or _is_empty_sentinel(payload_text):
+            return None
+        fenced = _extract_json_fence(payload_text)
+        return json.loads(fenced if fenced is not None else payload_text)
+
+    # Local server / test fixture: single block with raw JSON
+    if len(result.content) == 1:
+        block = result.content[0]
+        if not isinstance(block, TextContent):
+            raise TypeError(f"expected TextContent, got {type(block).__name__}")
+        text = block.text.strip()
+        if not text or _is_empty_sentinel(text):
+            return None
+        fenced = _extract_json_fence(text)
+        if fenced is not None:
+            return json.loads(fenced)
+        return json.loads(text)
+
+    raise ValueError(
+        f"expected 1 or 3 content blocks (remote server returns 3), got {len(result.content)}"
+    )
 
 
-# Matches a ```json ... ``` markdown fence anywhere in the text. We use a
-# non-greedy capture so multiple fences in one payload would each parse —
-# in practice the server emits exactly one for the records list.
+# Matches a ```json ... ``` markdown fence anywhere in the text.
 _JSON_FENCE_RE = re.compile(r"```json\s*\n(.*?)\n```", re.DOTALL)
 
 
@@ -183,15 +204,14 @@ def _extract_json_fence(text: str) -> str | None:
     return match.group(1) if match else None
 
 
-# Plain-text payloads the Dynatrace MCP server returns for zero-result calls
-# instead of a JSON envelope. Confirmed during the issue #23 spike against
-# v1.8.6: list_problems with no matches returns "No problems found". Other
-# tools follow the same pattern (no <thing> found / no records).
+# Plain-text payloads the server returns for zero-result calls.
 _EMPTY_SENTINEL_PREFIXES: tuple[str, ...] = (
     "no problems found",
     "no records",
     "no results",
     "no data",
+    "[ ]",
+    "[]",
 )
 
 
@@ -214,32 +234,23 @@ def _is_empty_sentinel(text: str) -> bool:
 async def list_open_problems(session: ClientSession, entity_id: str = "") -> list[dict[str, Any]]:
     """Return ACTIVE Davis problems, optionally scoped to a workspace entity.
 
-    The upstream Dynatrace MCP server validates ``status`` against the set
-    ``{"ACTIVE", "CLOSED", "ALL"}`` (confirmed during the issue #23 spike —
-    the older ``"OPEN"`` value documented in some Dynatrace v2 problems-API
-    pages is rejected at the MCP layer). We always pass ``"ACTIVE"`` to get
-    the open-problem feed.
+    The remote Dynatrace MCP server tool is ``query-problems`` (kebab-case).
+    It accepts ``status`` (``"ACTIVE"``, ``"CLOSED"``, ``"ALL"``) but does
+    not accept an ``entity`` filter — entity scoping must be done via DQL
+    (``execute-dql``) if needed. The ``entity_id`` parameter is accepted for
+    API compatibility but ignored when calling the remote server.
 
-    ``entity_id`` is optional. The upstream tool rejects an empty-string
-    entity, so we omit the argument entirely when no workspace id is
-    available — useful on a fresh trial tenant where no entity has been
-    materialised yet. Pass a real id once the workspace entity exists in
-    Smartscape.
-
-    See the response-shape sample in ``docs/dynatrace-mcp-notes.md``. Each
-    element is a dict with at least ``problemId``, ``title``, ``severity``,
-    ``status``, ``startTime``, and ``affectedEntities``. Empty list when the
-    workspace is healthy — the Sentinel ALLOW path.
+    See the response-shape notes in ``docs/dynatrace-mcp-notes.md``. Each
+    element is a dict with at least ``event.id``, ``display_id``,
+    ``event.status``, ``event.start``, ``event.end``, ``event.category``,
+    ``event.description``, ``affected_entity_ids``, ``related_entity_ids``.
+    Empty list when the workspace is healthy — the Sentinel ALLOW path.
     """
-    args: dict[str, Any] = {"status": "ACTIVE"}
-    if entity_id:
-        args["entity"] = entity_id
-    result = await session.call_tool("list_problems", args)
+    result = await session.call_tool("query-problems", {"status": "ACTIVE"})
     payload = _parse_text_content(result)
     if payload is None:
         return []
     if isinstance(payload, list):
-        # Some Dynatrace MCP versions return the array at the top level.
         return payload
     return payload.get("problems", [])
 
@@ -250,15 +261,14 @@ async def list_open_problems(session: ClientSession, entity_id: str = "") -> lis
 async def run_dql(session: ClientSession, query: str) -> list[dict[str, Any]]:
     """Run a DQL query against Grail and return the parsed records.
 
-    Always pass a tight ``from:`` timeframe in the query — the pre-flight
-    runs on every risky tool call and Grail charges by GB scanned. The
-    metadata block (``scannedBytes`` etc.) is dropped; expose it in a
-    follow-up issue if Sentinel ever needs to throttle on budget.
+    The remote Dynatrace MCP server tool is ``execute-dql`` (kebab-case).
+    The argument key is ``dqlQueryString`` (changed from ``dqlStatement``
+    on the local server — confirmed during the migration spike, 2026-06-09).
 
-    The MCP tool argument is ``dqlStatement`` (confirmed during the issue
-    #23 spike against v1.8.6 — the natural ``query`` name is rejected).
+    Always pass a tight ``from:`` timeframe in the query — the pre-flight
+    runs on every risky tool call and Grail charges by GB scanned.
     """
-    result = await session.call_tool("execute_dql", {"dqlStatement": query})
+    result = await session.call_tool("execute-dql", {"dqlQueryString": query})
     payload = _parse_text_content(result)
     if payload is None:
         return []
