@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 
-
 _PATCH_FLAG = "_sentinelds_part_metadata_stripped"
 
 
