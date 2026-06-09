@@ -75,6 +75,15 @@ async def run_demo(prompt: str, csv: str, paper_url: str, target: str) -> None:
     csv_path = str(pathlib.Path(_prepare_csv(csv, target)).resolve())
     final_prompt = prompt or _build_prompt(paper_url, csv_path, target)
 
+    from sentinel import SentinelSession, set_sentinel_session  # noqa: PLC0415
+
+    set_sentinel_session(
+        SentinelSession(
+            workspace_entity_id=getattr(settings, "DYNATRACE_WORKSPACE_ENTITY_ID", "WORKSPACE-1"),
+            agent_name="root_agent",
+        )
+    )
+
     # Import here to avoid circular imports at module load
     from agents.agent import root_agent  # noqa: PLC0415
 
