@@ -53,7 +53,7 @@ Prefer Python-first conventions because the planned runtime is ADK + data-scienc
 Add tests alongside new code rather than deferring them. Use `tests/` with file names like `test_research_agent.py`. Cover agent orchestration, Sentinel pre-flight decisions, and telemetry emission paths first. If you add a test runner, standardize on one command and document it in `README.md`.
 
 ## Commit & Pull Request Guidelines
-Recent history uses short, imperative messages such as `Update README repo layout` and `updated PLAN.md`. Keep commits focused and readable; mention the file or subsystem when useful. PRs should include a concise summary, linked issue or milestone, test evidence, and screenshots or trace captures for dashboard, telemetry, or demo-flow changes.
+Recent history uses short, imperative messages such as `Update README repo layout` and `updated PLAN.md`. Keep commits focused and readable; mention the file or subsystem when useful. PRs should include a concise summary, linked issue or milestone, test evidence, and screenshots or trace captures for dashboard, telemetry, or demo-flow changes. Always refer to `.github/pull_request_template.md` when creating a pull request.
 
 ## Security & Configuration Tips
 Do not commit `.env` files, service-account keys, OTLP tokens, MCP credentials, datasets, or model artifacts. Follow `.gitignore` for local outputs, and keep any security-sensitive demo setup documented in `PLAN.md` or `README.md` rather than hardcoded in source.
