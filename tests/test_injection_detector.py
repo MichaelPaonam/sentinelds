@@ -123,17 +123,13 @@ class TestScanForInjectionVariants(unittest.TestCase):
         matches = scan_for_injection(VARIANT_1)
         self.assertTrue(matches, "VARIANT_1 (disregard + send URL) should be flagged")
         categories = {m.category for m in matches}
-        self.assertTrue(
-            "INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories
-        )
+        self.assertTrue("INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories)
 
     def test_variant_2_forget_act_as(self) -> None:
         matches = scan_for_injection(VARIANT_2)
         self.assertTrue(matches, "VARIANT_2 (forget + act as + fetch URL) should be flagged")
         categories = {m.category for m in matches}
-        self.assertTrue(
-            "INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories
-        )
+        self.assertTrue("INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories)
 
     def test_variant_3_override_system_prompt(self) -> None:
         matches = scan_for_injection(VARIANT_3)
@@ -142,9 +138,7 @@ class TestScanForInjectionVariants(unittest.TestCase):
             "VARIANT_3 (override system prompt + transmit URL) should be flagged",
         )
         categories = {m.category for m in matches}
-        self.assertTrue(
-            "INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories
-        )
+        self.assertTrue("INSTRUCTION_OVERRIDE" in categories or "URL_WITH_POST_VERB" in categories)
 
 
 class TestScanForInjectionFencedRole(unittest.TestCase):
@@ -284,9 +278,7 @@ class TestEmitInjectionCandidate(unittest.TestCase):
 
 class TestCheckAndEmit(unittest.TestCase):
     @patch("sentinel.injection_detector.emit_injection_candidate")
-    def test_check_and_emit_calls_emitter_when_configured(
-        self, mock_emit: MagicMock
-    ) -> None:
+    def test_check_and_emit_calls_emitter_when_configured(self, mock_emit: MagicMock) -> None:
         mock_emit.return_value = True
         matches = check_and_emit(
             STAGED_PAYLOAD,
@@ -300,9 +292,7 @@ class TestCheckAndEmit(unittest.TestCase):
         mock_emit.assert_called_once()
 
     @patch("sentinel.injection_detector.emit_injection_candidate")
-    def test_check_and_emit_skips_emitter_without_credentials(
-        self, mock_emit: MagicMock
-    ) -> None:
+    def test_check_and_emit_skips_emitter_without_credentials(self, mock_emit: MagicMock) -> None:
         matches = check_and_emit(
             STAGED_PAYLOAD,
             span_id="aabbccdd",

@@ -124,11 +124,13 @@ def scan_for_injection(content: str) -> list[InjectionMatch]:
     for pat in _INSTRUCTION_OVERRIDE_PATTERNS:
         for m in pat.finditer(content):
             excerpt = _excerpt(content, m.start(), m.end())
-            matches.append(InjectionMatch(
-                category="INSTRUCTION_OVERRIDE",
-                excerpt=excerpt,
-                excerpt_hash=_sha256(excerpt),
-            ))
+            matches.append(
+                InjectionMatch(
+                    category="INSTRUCTION_OVERRIDE",
+                    excerpt=excerpt,
+                    excerpt_hash=_sha256(excerpt),
+                )
+            )
 
     # 2. URL_WITH_POST_VERB
     for url_m in _URL_RE.finditer(content):
@@ -137,21 +139,25 @@ def scan_for_injection(content: str) -> list[InjectionMatch]:
         window = content[window_start:window_end]
         if _POST_VERB_RE.search(window):
             excerpt = _excerpt(content, url_m.start(), url_m.end())
-            matches.append(InjectionMatch(
-                category="URL_WITH_POST_VERB",
-                excerpt=excerpt,
-                excerpt_hash=_sha256(excerpt),
-            ))
+            matches.append(
+                InjectionMatch(
+                    category="URL_WITH_POST_VERB",
+                    excerpt=excerpt,
+                    excerpt_hash=_sha256(excerpt),
+                )
+            )
 
     # 3. FENCED_ROLE_INJECTION
     for pat in _FENCED_ROLE_PATTERNS:
         for m in pat.finditer(content):
             excerpt = _excerpt(content, m.start(), m.end())
-            matches.append(InjectionMatch(
-                category="FENCED_ROLE_INJECTION",
-                excerpt=excerpt,
-                excerpt_hash=_sha256(excerpt),
-            ))
+            matches.append(
+                InjectionMatch(
+                    category="FENCED_ROLE_INJECTION",
+                    excerpt=excerpt,
+                    excerpt_hash=_sha256(excerpt),
+                )
+            )
 
     return matches
 
