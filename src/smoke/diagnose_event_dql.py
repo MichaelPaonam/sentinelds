@@ -22,21 +22,17 @@ from sentinel.dynatrace_mcp import DynatraceMCPConfig, dynatrace_session, run_dq
 _QUERIES = [
     (
         "broad: any event with sentinelds in title (1h)",
-        'fetch events, from:now()-1h\n'
-        '| filter contains(title, "sentinelds")\n'
-        '| limit 5',
+        'fetch events, from:now()-1h\n| filter contains(title, "sentinelds")\n| limit 5',
     ),
     (
         "broad: any CUSTOM_INFO event (5m)",
-        'fetch events, from:now()-5m\n'
-        '| filter event.type == "CUSTOM_INFO"\n'
-        '| limit 5',
+        'fetch events, from:now()-5m\n| filter event.type == "CUSTOM_INFO"\n| limit 5',
     ),
     (
         "by title field (1h)",
-        'fetch events, from:now()-1h\n'
+        "fetch events, from:now()-1h\n"
         '| filter title == "sentinelds.injection.candidate"\n'
-        '| limit 5',
+        "| limit 5",
     ),
 ]
 

@@ -62,8 +62,8 @@ pytestmark = [
 # Polling windows
 # ---------------------------------------------------------------------------
 
-EVENT_DQL_TIMEOUT_S = 60       # demo-critical path; assertion fails on miss
-PROBLEM_TIMEOUT_S = 300        # bonus Davis correlation path; only logged on miss
+EVENT_DQL_TIMEOUT_S = 60  # demo-critical path; assertion fails on miss
+PROBLEM_TIMEOUT_S = 300  # bonus Davis correlation path; only logged on miss
 POLL_INTERVAL_S = 5
 
 
@@ -73,7 +73,10 @@ POLL_INTERVAL_S = 5
 
 
 async def _run_test() -> None:
-    workspace_id = os.environ.get("DYNATRACE_WORKSPACE_ENTITY_ID") or OPTIONAL_ENV_DEFAULTS["DYNATRACE_WORKSPACE_ENTITY_ID"]
+    workspace_id = (
+        os.environ.get("DYNATRACE_WORKSPACE_ENTITY_ID")
+        or OPTIONAL_ENV_DEFAULTS["DYNATRACE_WORKSPACE_ENTITY_ID"]
+    )
 
     # 1. Plant a synthetic event with a per-run unique id so we can find *our*
     #    event among any others on the tenant.

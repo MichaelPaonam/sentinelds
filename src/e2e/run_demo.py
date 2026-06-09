@@ -134,7 +134,9 @@ async def run_demo(
                 if hasattr(event, "is_final_response") and event.is_final_response():
                     content = getattr(event, "content", None)
                     if content and getattr(content, "parts", None):
-                        text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
+                        text = "".join(
+                            p.text for p in content.parts if p and getattr(p, "text", None)
+                        )
                         print(f"\n[{author}] FINAL:\n{text.strip()}\n")
                 else:
                     # Stream intermediate text events for visibility
@@ -170,7 +172,9 @@ async def run_demo(
             structured_audit_line = json.dumps(audit_payload)
             logger.error(f"[SECURITY AUDIT] {structured_audit_line}")
             print(f"[SECURITY AUDIT] {structured_audit_line}", file=sys.stderr)
-            print(f"\n[SECURITY WARNING] Session quarantined! Execution halted on tool '{tool_name}'.")
+            print(
+                f"\n[SECURITY WARNING] Session quarantined! Execution halted on tool '{tool_name}'."
+            )
 
         # Print final session state keys for verification
         session = await session_service.get_session(
