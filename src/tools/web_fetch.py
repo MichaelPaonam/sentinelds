@@ -6,7 +6,9 @@ from urllib.parse import urlparse
 
 import httpx
 
+from core.config import settings
 from observability import current_span, traced_tool
+from sentinel.injection_detector import check_and_emit
 
 # from src.sentinel.preflight import sentinel_guard
 
@@ -60,12 +62,43 @@ def fetch_url(url: str) -> dict[str, Any]:
 
             decoded_content = body_bytes.decode("utf-8", errors="replace")
 
+            # Scan for prompt-injection signatures in the fetched content.
+            workspace_id = getattr(settings, "DYNATRACE_WORKSPACE_ENTITY_ID", "WORKSPACE-1")
+            dt_url = settings.DYNATRACE_API_URL or ""
+            dt_token = (
+                settings.DYNATRACE_API_TOKEN.get_secret_value()
+                if settings.DYNATRACE_API_TOKEN
+                else ""
+            )
+            span_ctx = span.get_span_context()
+            try:
+                span_id_hex = format(span_ctx.span_id, "016x") if span_ctx else ""
+            except (TypeError, ValueError):
+                span_id_hex = ""
+
+            injection_matches = check_and_emit(
+                decoded_content,
+                span_id=span_id_hex,
+                workspace_entity_id=workspace_id,
+                source_url=url,
+                dynatrace_api_url=dt_url or None,
+                dynatrace_api_token=dt_token or None,
+            )
+            if injection_matches:
+                categories = list({m.category for m in injection_matches})
+                span.set_attribute("prompt.injection_signature", ", ".join(sorted(categories)))
+                span.set_attribute("prompt.injection_match_count", len(injection_matches))
+
             return {
                 "status": "success",
                 "url": url,
                 "content": decoded_content,
                 "size": len(body_bytes),
                 "sha256": content_hash,
+                "injection_matches": [
+                    {"category": m.category, "excerpt_hash": m.excerpt_hash}
+                    for m in injection_matches
+                ],
             }
 
     except Exception as e:
