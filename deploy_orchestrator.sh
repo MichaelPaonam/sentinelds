@@ -137,6 +137,7 @@ RUN uv pip compile pyproject.toml -o requirements.txt && \\
 
 COPY src/core/ /app/src/core/
 COPY src/observability/ /app/src/observability/
+COPY src/sentinel/ /app/src/sentinel/
 COPY src/orchestrator/ /app/src/orchestrator/
 COPY src/main.py /app/src/main.py
 
