@@ -62,6 +62,7 @@ class SentinelSession:
     agent_name: str = "Unknown Agent"
     compromised: bool = False
     compromise_reason: str = ""
+    quarantined: bool = False
 
 
 def _sentinel_event_dql(workspace_entity_id: str) -> str:
