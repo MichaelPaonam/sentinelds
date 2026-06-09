@@ -5,7 +5,10 @@ from typing import Any, Dict, List, Union
 
 import pandas as pd
 
+from observability import current_span, traced_tool
 
+
+@traced_tool("make_csv_file")
 def make_csv_file(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filepath: str) -> str:
     """Creates a CSV file from the provided data.
 
@@ -16,6 +19,9 @@ def make_csv_file(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filep
     Returns:
         A success message indicating the shape of the saved dataset.
     """
+    span = current_span()
+    span.set_attribute("dataset.uri", filepath)
+
     try:
         # Create parent directories if they don't exist
         dir_name = os.path.dirname(filepath)
@@ -24,11 +30,16 @@ def make_csv_file(data: Union[List[Dict[str, Any]], Dict[str, List[Any]]], filep
 
         df = pd.DataFrame(data)
         df.to_csv(filepath, index=False)
+
+        span.set_attribute("dataset.rows", df.shape[0])
+        span.set_attribute("dataset.cols", df.shape[1])
+
         return f"Successfully saved {df.shape[0]} rows and {df.shape[1]} columns to {filepath}"
     except Exception as e:
         raise RuntimeError(f"Failed to create CSV file: {str(e)}")
 
 
+@traced_tool("make_md_file")
 def make_md_file(content: str, filepath: str) -> str:
     """Creates a Markdown (.md) file with the provided content.
 
@@ -39,6 +50,10 @@ def make_md_file(content: str, filepath: str) -> str:
     Returns:
         A success message indicating the file path where it was saved.
     """
+    span = current_span()
+    span.set_attribute("report.path", filepath)
+    span.set_attribute("report.char_count", len(content))
+
     try:
         # Create parent directories if they don't exist
         dir_name = os.path.dirname(filepath)
@@ -47,11 +62,13 @@ def make_md_file(content: str, filepath: str) -> str:
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
+
         return f"Successfully created Markdown file at {filepath}"
     except Exception as e:
         raise RuntimeError(f"Failed to create Markdown file: {str(e)}")
 
 
+@traced_tool("make_py_file")
 def make_py_file(code: str, filepath: str) -> str:
     """Creates a Python (.py) file with the provided code.
 
@@ -62,6 +79,10 @@ def make_py_file(code: str, filepath: str) -> str:
     Returns:
         A success message indicating the file path where it was saved.
     """
+    span = current_span()
+    span.set_attribute("report.path", filepath)
+    span.set_attribute("report.char_count", len(code))
+
     try:
         # Create parent directories if they don't exist
         dir_name = os.path.dirname(filepath)
@@ -70,6 +91,7 @@ def make_py_file(code: str, filepath: str) -> str:
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(code)
+
         return f"Successfully created Python file at {filepath}"
     except Exception as e:
         raise RuntimeError(f"Failed to create Python file: {str(e)}")
