@@ -12,7 +12,7 @@ from typing import Any
 
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CLEAN_CSV = REPO_ROOT / "src/attack_server/data/clean.csv"
 POISONED_CSV = REPO_ROOT / "src/attack_server/data/poisoned.csv"
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "baseline_snapshots"
@@ -62,9 +62,7 @@ def _print_stability_summary(snapshots: list[dict[str, Any]]) -> None:
     alert_props = [_label_alert_proportion(s) for s in snapshots]
     print(f"  label=0 proportion across runs: {alert_props}")
     spread = max(alert_props) - min(alert_props)
-    print(
-        f"  min={min(alert_props):.4f}  max={max(alert_props):.4f}  spread={spread:.6f}"
-    )
+    print(f"  min={min(alert_props):.4f}  max={max(alert_props):.4f}  spread={spread:.6f}")
     if spread == 0.0:
         print("  Result: stats are identical across all 5 baseline runs (stable baseline).")
     else:
@@ -101,8 +99,6 @@ def main() -> None:
 
     for run_num in range(1, N_BASELINE_RUNS + 1):
         print(f"\n[seed] Simulating clean ingest run_{run_num}")
-        clean_df.describe()
-        clean_df["label"].value_counts()
         snapshot = _build_snapshot(clean_df, CLEAN_CSV)
         snapshot["run"] = run_num
         snapshot["ingest_type"] = "baseline_clean"
@@ -113,8 +109,6 @@ def main() -> None:
 
     print("\n[seed] Simulating poisoned ingest")
     poisoned_df = pd.read_csv(POISONED_CSV)
-    poisoned_df.describe()
-    poisoned_df["label"].value_counts()
     poisoned_snapshot = _build_snapshot(poisoned_df, POISONED_CSV)
     poisoned_snapshot["run"] = "poisoned"
     poisoned_snapshot["ingest_type"] = "poisoned"
