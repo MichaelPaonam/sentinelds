@@ -53,7 +53,7 @@ feature_transformer = LlmAgent(
     name="feature_transformer",
     description="Transforms, normalizes, scales features, and saves the clean dataset.",
     instruction=FEATURE_ENGINEER_INSTRUCTION,
-    tools=[make_csv_file],
+    tools=[csv_read, pandas_profile, make_csv_file],
     output_key="feature_engineering_report",
 )
 
