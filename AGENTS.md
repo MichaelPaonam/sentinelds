@@ -12,7 +12,8 @@ When implementation lands, keep the documented architecture intact: Research, Fe
 ## Build, Test, and Development Commands
 No runnable application, build script, or test suite is checked in yet. Until scaffolding is added, contributors should use:
 
-- **Check Knowledge Base FIRST**: Always view and check the offline knowledge base located at `C:\Users\henju\Projects\sentinelds-KB` (especially `development_operations.md` and `README.md`) before running any tasks.
+- **Check Knowledge Base FIRST**: Always view and check the offline knowledge base located at `$HOME\Projects\sentinelds-KB` (especially `development_operations.md` and `README.md`) before running any tasks.
+- **Knowledge Base Synchronization**: Whenever there is a documentation update in this project repository (such as modifications to `README.md`, `PLAN.md`, `GEMINI.md`, `AGENTS.md`, or files under the `docs/` folder), you MUST immediately propagate and synchronize those changes to the corresponding files and index inside the offline knowledge base at `$HOME\Projects\sentinelds-KB` to keep them perfectly in sync.
 - **Python Executable Rule**: On Windows, always invoke Python tools via the local virtual environment: `.venv\Scripts\python.exe` (or using `uv run`). Never run raw or global `python` commands.
 - **Dependency & Tool Checks**: Always check `pyproject.toml` and `uv.lock` before executing commands to verify that the tool is actually installed in the workspace (e.g. `ruff` is NOT installed in `uv.lock` or `pyproject.toml` despite having configuration sections; do not run `ruff`). Use `.venv\Scripts\mypy` for static typing and `.venv\Scripts\pytest` for tests.
 - `git status` to verify a clean working tree before and after changes.
