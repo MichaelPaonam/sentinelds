@@ -17,6 +17,7 @@ import inspect
 import json
 import logging
 import sys
+from dataclasses import dataclass, field  # noqa: F401 — field reserved for future use
 from enum import Enum
 from typing import Any
 
@@ -45,6 +46,22 @@ class Verdict(str, Enum):
     ALLOW = "ALLOW"
     WARN = "WARN"
     HALT = "HALT"
+
+
+@dataclass
+class SentinelSession:
+    """Per-run security state. Replaces Sentinel's class-level globals.
+
+    A single instance is created at the start of an agent run and read by
+    every tool gate. Once `compromised` flips to True, all subsequent
+    `sentinel_check` calls return HALT.
+    """
+
+    workspace_entity_id: str
+    mcp_session: ClientSession | None = None
+    agent_name: str = "Unknown Agent"
+    compromised: bool = False
+    compromise_reason: str = ""
 
 
 def _sentinel_event_dql(workspace_entity_id: str) -> str:
@@ -195,6 +212,38 @@ class Sentinel:
 
         return decision
 
+    @classmethod
+    async def notify(cls, sess: SentinelSession, event_type: str) -> Verdict:
+        """Called when a local detector fires. Sets the compromise flag and
+        optionally enriches with a one-shot MCP query for dashboard signal.
+
+        Decision is **local** — we do not wait for Davis AI to confirm. The
+        detector match is the source of truth for the gate. MCP is best-effort.
+        """
+        # Local detection is sufficient. Set the flag immediately.
+        if event_type.startswith(("injection", "dataset.drift")):
+            sess.compromised = True
+            sess.compromise_reason = event_type
+
+        # Best-effort MCP enrichment for the dashboard story.
+        # Failures must not unset the flag or raise.
+        try:
+            if sess.mcp_session is not None:
+                verdict = await cls.preflight(
+                    session=sess.mcp_session,
+                    workspace_entity_id=sess.workspace_entity_id,
+                    tool_name=event_type,
+                    agent_name=sess.agent_name,
+                )
+                # If MCP says HALT and we haven't already flagged, flag now.
+                if verdict == Verdict.HALT and not sess.compromised:
+                    sess.compromised = True
+                    sess.compromise_reason = f"mcp:{event_type}"
+        except Exception:
+            logger.warning("Sentinel.notify MCP enrichment failed", exc_info=True)
+
+        return Verdict.HALT if sess.compromised else Verdict.ALLOW
+
 
 async def preflight(
     session: ClientSession, workspace_entity_id: str, tool_name: str = "legacy_tool"
@@ -206,7 +255,15 @@ async def preflight(
 
 
 def sentinel_guard(tool_name: str) -> Any:
-    """Decorator to enforce Sentinel pre-flight checks before tool execution."""
+    """Decorator to enforce Sentinel pre-flight checks before tool execution.
+
+    .. deprecated::
+        Use :func:`sentinel_gate` instead. ``sentinel_guard`` performs a
+        blocking MCP round-trip on every call. ``sentinel_gate`` checks the
+        local ``SentinelSession`` flag (O(1)) after the observer has fired
+        ``Sentinel.notify``. This function is kept for backwards compatibility
+        and will be removed in a future release.
+    """
 
     def decorator(func: Any) -> Any:
         """Helper to apply the pre-flight gate to the decorated function."""
@@ -238,5 +295,50 @@ def sentinel_guard(tool_name: str) -> Any:
                 return func(*args, **kwargs)
 
             return sync_wrapper
+
+    return decorator
+
+
+def sentinel_check(sess: SentinelSession) -> Verdict:
+    """Local flag check. No MCP. O(1)."""
+    return Verdict.HALT if sess.compromised else Verdict.ALLOW
+
+
+def sentinel_gate(tool_name: str) -> Any:
+    """Decorator: halt the tool call if the active SentinelSession is compromised.
+
+    Reads the active session via ``sentinel.session.get_sentinel_session()``. If no
+    session is set (e.g. unit tests not using contextvars), the gate is a no-op
+    — call proceeds. Production callers must always ``set_sentinel_session(...)``
+    at the top of a run.
+    """
+    from sentinel.session import get_sentinel_session  # local import: avoids circular
+
+    def decorator(func: Any) -> Any:
+        if inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                sess = get_sentinel_session()
+                if sess is not None and sentinel_check(sess) == Verdict.HALT:
+                    raise PermissionError(
+                        f"Sentinel halted '{tool_name}' — workspace compromised "
+                        f"({sess.compromise_reason})."
+                    )
+                return await func(*args, **kwargs)
+
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            sess = get_sentinel_session()
+            if sess is not None and sentinel_check(sess) == Verdict.HALT:
+                raise PermissionError(
+                    f"Sentinel halted '{tool_name}' — workspace compromised "
+                    f"({sess.compromise_reason})."
+                )
+            return func(*args, **kwargs)
+
+        return sync_wrapper
 
     return decorator

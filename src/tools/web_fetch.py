@@ -1,5 +1,6 @@
 """Web fetch tool with sentinel protection and OpenTelemetry instrumentation."""
 
+import asyncio
 import hashlib
 from typing import Any
 from urllib.parse import urlparse
@@ -9,11 +10,11 @@ import httpx
 from core.config import settings
 from observability import current_span, traced_tool
 from sentinel.injection_detector import check_and_emit
+from sentinel.preflight import Sentinel, sentinel_gate
+from sentinel.session import get_sentinel_session
 
-# from src.sentinel.preflight import sentinel_guard
 
-
-# @sentinel_guard("web_fetch")
+@sentinel_gate("web_fetch")
 @traced_tool("web_fetch")
 def fetch_url(url: str) -> dict[str, Any]:
     """Fetches the content of a specified URL.
@@ -88,6 +89,16 @@ def fetch_url(url: str) -> dict[str, Any]:
                 categories = list({m.category for m in injection_matches})
                 span.set_attribute("prompt.injection_signature", ", ".join(sorted(categories)))
                 span.set_attribute("prompt.injection_match_count", len(injection_matches))
+
+                # Notify the active SentinelSession so the next tool call halts.
+                sess = get_sentinel_session()
+                if sess is not None:
+                    try:
+                        asyncio.run(Sentinel.notify(sess, "injection.candidate"))
+                    except RuntimeError:
+                        # Already inside a running loop (rare for this sync tool).
+                        sess.compromised = True
+                        sess.compromise_reason = "injection.candidate"
 
             return {
                 "status": "success",
