@@ -114,7 +114,12 @@ async def dynatrace_session(
     forwarded on every request by the Streamable HTTP transport.
     """
     headers = {"Authorization": f"Bearer {cfg.platform_token}"}
-    async with streamablehttp_client(cfg.remote_url, headers=headers) as (
+    async with streamablehttp_client(
+        cfg.remote_url,
+        headers=headers,
+        timeout=30,
+        sse_read_timeout=120,
+    ) as (
         read,
         write,
         _close,
