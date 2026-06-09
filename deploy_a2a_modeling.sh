@@ -10,4 +10,5 @@ gcloud run deploy sentinelds-a2a-modeling \
   --region=europe-west4 \
   --project=sentinelds \
   --allow-unauthenticated \
-  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest,GEMINI_API_KEY=gemini-api-key:latest"
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=sentinelds,GOOGLE_CLOUD_LOCATION=europe-west4" \
+  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest"
