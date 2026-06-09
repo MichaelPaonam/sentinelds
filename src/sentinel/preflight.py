@@ -64,14 +64,26 @@ class SentinelSession:
     compromise_reason: str = ""
 
 
-def _sentinel_event_dql(workspace_entity_id: str) -> str:
-    """DQL for sentinelds attack-detection events in the last 5 minutes."""
+def _sentinel_event_dql(workspace_entity_id: str, lookback: str = "5m") -> str:
+    """DQL for sentinelds attack-detection events.
+
+    Matches both ``sentinelds.attack.detected`` and ``sentinelds.injection.candidate``
+    so the event-DQL fallback path sees injection events the detector emits via
+    ``emit_injection_candidate`` (which uses the latter type).
+
+    Entity scoping is applied only when ``workspace_entity_id`` looks like a real
+    Dynatrace entity ID. Placeholder values (e.g. ``"WORKSPACE-1"``) are omitted
+    from the filter — the event is still findable via the ``workspace_entity_id``
+    property in the payload.
+    """
+    entity_filter = ""
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        entity_filter = f'| filter workspace_entity_id == "{workspace_entity_id}"\n'
     return (
-        "fetch events, from:now()-5m\n"
-        '| filter event.kind == "BIZ_EVENT"\n'
-        '   and event.type == "sentinelds.attack.detected"\n'
-        f'| filter dt.entity.workspace == "{workspace_entity_id}"\n'
-        "| fields severity, attack_id, agent\n"
+        f"fetch events, from:now()-{lookback}\n"
+        '| filter event.type == "CUSTOM_INFO" and isNotNull(matched_categories)\n'
+        f"{entity_filter}"
+        "| fields event.type, excerpt_hash, matched_categories, workspace_entity_id\n"
         "| limit 10"
     )
 
@@ -167,7 +179,7 @@ class Sentinel:
                     input_problems = halt_problems
                 else:
                     # 2) Check custom sentinelds events
-                    rows = await run_dql(sess, _sentinel_event_dql(ws_id))
+                    rows = await run_dql(sess, _sentinel_event_dql(ws_id, "5m"))
                     if rows:
                         input_problems = rows
                         if any(r.get("severity") == "high" for r in rows):
@@ -211,6 +223,25 @@ class Sentinel:
         print(f"[Sentinel Preflight] {structured_log_line}", file=sys.stderr)
 
         return decision
+
+    @classmethod
+    async def query_attack_events(
+        cls,
+        session: ClientSession,
+        workspace_entity_id: str,
+        *,
+        lookback: str = "5m",
+    ) -> list[dict[str, Any]]:
+        """Query sentinelds attack/injection events directly via DQL.
+
+        This is the *event-only fallback* path Sentinel relies on when Davis AI
+        has not yet correlated the custom event into a Problem on the workspace
+        entity. The Davis Problem path (``list_open_problems``) is a bonus —
+        correlation can take minutes; the event is queryable in seconds.
+
+        Returns the parsed records (``[]`` when none).
+        """
+        return await run_dql(session, _sentinel_event_dql(workspace_entity_id, lookback))
 
     @classmethod
     async def notify(cls, sess: SentinelSession, event_type: str) -> Verdict:

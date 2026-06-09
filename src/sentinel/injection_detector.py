@@ -205,7 +205,7 @@ def emit_injection_candidate(
     categories = list({m.category for m in matches})
     top_match = matches[0]
 
-    event_body = {
+    event_body: dict = {
         "eventType": "CUSTOM_INFO",
         "title": "sentinelds.injection.candidate",
         "properties": {
@@ -218,8 +218,12 @@ def emit_injection_candidate(
             "source_url": source_url,
             "workspace_entity_id": workspace_entity_id,
         },
-        "entitySelector": f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")',
     }
+    # Only attach the entitySelector when we have a real Dynatrace entity ID.
+    # A placeholder like "WORKSPACE-1" causes a 400 from events/ingest.
+    # Without it the event is still ingested and queryable via DQL.
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        event_body["entitySelector"] = f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")'
 
     endpoint = f"{dynatrace_api_url.rstrip('/')}/api/v2/events/ingest"
     headers = {
