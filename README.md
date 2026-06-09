@@ -23,7 +23,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
 | **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
-| **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel HALT at training boundary, dataset SHA-256 quarantined |
+| **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel `preflight()` queries MCP (`query-problems`, `execute-dql`) → HALT before training tool executes |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
 
@@ -58,10 +58,10 @@ The halt decision is **local and immediate** — `@sentinel_gate` reads a flag s
 
 ```mermaid
 flowchart LR
-    E["<b>1. EMIT</b>\ndataset.stats.* metrics\n+ SHA-256 spans on CSV ingest"]
+    E["<b>1. EMIT</b>\ndataset.stats.* metrics\non CSV ingest"]
     D["<b>2. DETECT</b>\nDavis AI baselines metrics;\nraises Problem on drift"]
-    De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(list_problems, execute_dql)\nreturns HALT"]
-    En["<b>4. ENFORCE</b>\nSentinel halts training tool call;\ndataset SHA-256 quarantined"]
+    De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(query-problems, execute-dql)\nreturns HALT"]
+    En["<b>4. ENFORCE</b>\nSentinel halts training tool call\n(is_risky(\"train\") → HALT)"]
 
     E --> D --> De --> En
 ```
@@ -119,7 +119,7 @@ flowchart TD
         DT["Traces · Davis AI · Problems"]
     end
 
-    DT -- "MCP: list_problems\nexecute_dql" --> SA
+    DT -- "MCP: query-problems\nexecute-dql" --> SA
     ID -. "best-effort enrichment\n(A1 only)" .-> SA
 
     SA["Sentinel Agent\npreflight() → ALLOW/WARN/HALT\n(A2 critical path)"]
