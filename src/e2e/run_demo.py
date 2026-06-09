@@ -128,18 +128,50 @@ async def run_demo(
             new_message=Content(parts=[Part.from_text(text=final_prompt)]),
         )
 
-        for event in event_stream:
-            author = getattr(event, "author", None)
-            if hasattr(event, "is_final_response") and event.is_final_response():
-                content = getattr(event, "content", None)
-                if content and getattr(content, "parts", None):
-                    text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
-                    print(f"\n[{author}] FINAL:\n{text.strip()}\n")
-            else:
-                raw_text = getattr(event, "text", None)
-                if raw_text:
-                    print(f"[{author}] {str(raw_text).strip()}")
+        try:
+            for event in event_stream:
+                author = getattr(event, "author", None)
+                if hasattr(event, "is_final_response") and event.is_final_response():
+                    content = getattr(event, "content", None)
+                    if content and getattr(content, "parts", None):
+                        text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
+                        print(f"\n[{author}] FINAL:\n{text.strip()}\n")
+                else:
+                    raw_text = getattr(event, "text", None)
+                    if raw_text:
+                        print(f"[{author}] {str(raw_text).strip()}")
+        except PermissionError as e:
+            import json
+            import re
+            import sys
 
+            from sentinel.session import get_sentinel_session
+
+            sess = get_sentinel_session()
+            if sess is not None:
+                sess.quarantined = True
+                sess.compromised = True
+
+            tool_name = "unknown_tool"
+            match = re.search(r"Sentinel halted '([^']+)'", str(e))
+            if match:
+                tool_name = match.group(1)
+
+            # Output structured security audit log line
+            audit_payload = {
+                "workspace": sess.workspace_entity_id if sess else "WORKSPACE-1",
+                "agent": sess.agent_name if sess else "root_agent",
+                "tool": tool_name,
+                "rule_fired": "SENTINEL_QUARANTINE",
+                "decision": "HALT",
+                "reason": str(e),
+            }
+            structured_audit_line = json.dumps(audit_payload)
+            logger.error(f"[SECURITY AUDIT] {structured_audit_line}")
+            print(f"[SECURITY AUDIT] {structured_audit_line}", file=sys.stderr)
+            print(f"\n[SECURITY WARNING] Session quarantined! Execution halted on tool '{tool_name}'.")
+
+        # Print final session state keys for verification
         session = await session_service.get_session(
             app_name="sentinelds_e2e", user_id=user_id, session_id=session_id
         )
