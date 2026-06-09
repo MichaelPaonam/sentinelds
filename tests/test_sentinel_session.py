@@ -54,15 +54,18 @@ def test_session_quarantine_flag():
 def test_quarantine_audit_logging(capsys):
     """Verify that catching a PermissionError and triggering quarantine logs the correct payload."""
     import json
-    import sys
-    from sentinel.session import set_sentinel_session, clear_sentinel_session
     import re
+    import sys
+
+    from sentinel.session import clear_sentinel_session, set_sentinel_session
 
     sess = SentinelSession(workspace_entity_id="WORKSPACE-TEST", agent_name="test_agent")
     set_sentinel_session(sess)
 
     try:
-        raise PermissionError("Sentinel halted 'model_train' — workspace compromised (injection.candidate).")
+        raise PermissionError(
+            "Sentinel halted 'model_train' — workspace compromised (injection.candidate)."
+        )
     except PermissionError as e:
         sess.quarantined = True
         sess.compromised = True

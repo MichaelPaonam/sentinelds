@@ -124,10 +124,11 @@ async def run_demo(prompt: str, csv: str, paper_url: str, target: str) -> None:
                 if raw_text:
                     print(f"[{author}] {str(raw_text).strip()}")
     except PermissionError as e:
-        from sentinel.session import get_sentinel_session
         import json
         import re
         import sys
+
+        from sentinel.session import get_sentinel_session
 
         sess = get_sentinel_session()
         if sess is not None:
