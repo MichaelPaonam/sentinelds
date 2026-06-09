@@ -13,6 +13,12 @@ from observability import init_tracing, instrument_genai
 init_tracing(service_name="sentinelds-feature-agent", agent_name="feature_agent")
 instrument_genai()
 
+# Patch ADK's A2A→GenAI part converter BEFORE importing any other google.adk.a2a
+# module. ADK callers capture `convert_a2a_part_to_genai_part` as a default arg
+# at function-definition time, so the patch must be in place before those caller
+# modules are imported (e.g. via `to_a2a`, `RemoteA2aAgent`).
+from core import genai_compat  # noqa: E402,F401
+
 import uvicorn  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
