@@ -121,6 +121,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 runTheatricalSimulation();
             }
         });
+
+        // Physical Keyboard Event Bindings (F1, F2, F3, F5)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F1') {
+                e.preventDefault();
+                if (!isSimulationRunning && !isLiveMode) {
+                    setActiveScenario('A1');
+                }
+            } else if (e.key === 'F2') {
+                e.preventDefault();
+                if (!isSimulationRunning && !isLiveMode) {
+                    setActiveScenario('A2');
+                }
+            } else if (e.key === 'F3') {
+                e.preventDefault();
+                window.location.href = 'chat.html';
+            } else if (e.key === 'F5') {
+                e.preventDefault();
+                if (!isLiveMode) {
+                    btnPlaySim.click();
+                }
+            }
+        });
     }
 
     function setActiveScenario(scenario) {
