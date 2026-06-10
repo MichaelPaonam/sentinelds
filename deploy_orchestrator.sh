@@ -93,6 +93,7 @@ instrument_genai()
 from core import genai_compat  # noqa: E402,F401
 
 from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
+from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore")
@@ -111,6 +112,23 @@ app = get_fast_api_app(
     session_service_uri=SESSION_SERVICE_URI,
     web=True,
     allow_origins=["*"],
+)
+
+# Belt-and-braces CORS at the ASGI layer. get_fast_api_app(allow_origins=["*"])
+# only configures CORS on the routes ADK mounts; this middleware guarantees
+# Access-Control-Allow-Origin: * on every response, including any route added
+# later or any error response. Wildcard origin is fine here because the
+# orchestrator is unauthenticated by design (Cloud Run --allow-unauthenticated)
+# — credentials are not in play, so the browser will not require a specific
+# origin echo. allow_credentials must stay False for "*" to be valid per the
+# CORS spec.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 if __name__ == "__main__":
@@ -163,6 +181,7 @@ gcloud run deploy sentinelds-orchestrator \
   --set-secrets="DT_PLATFORM_TOKEN=dt-platform-token:latest" \
   --set-env-vars="RESEARCH_AGENT_CARD_BASE_URL=$RESEARCH_AGENT_CARD_BASE_URL" \
   --set-env-vars="FEATURE_AGENT_CARD_BASE_URL=$FEATURE_AGENT_CARD_BASE_URL" \
-  --set-env-vars="MODELING_AGENT_CARD_BASE_URL=$MODELING_AGENT_CARD_BASE_URL"
+  --set-env-vars="MODELING_AGENT_CARD_BASE_URL=$MODELING_AGENT_CARD_BASE_URL" \
+  --set-env-vars="SENTINEL_AUDIT_URL=$SENTINEL_AUDIT_URL"
 
 # cleanup runs via the EXIT trap above
