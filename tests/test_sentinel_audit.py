@@ -73,9 +73,7 @@ class TestEmitAuditEnabled(unittest.TestCase):
         mock_post.assert_awaited_once()
         called_url, called_kwargs = mock_post.await_args.args, mock_post.await_args.kwargs
         self.assertEqual(called_url[0], "https://sentinel.example.com/audit")
-        self.assertEqual(
-            called_kwargs["json"], {"tool": "web_fetch", "decision": "ALLOW"}
-        )
+        self.assertEqual(called_kwargs["json"], {"tool": "web_fetch", "decision": "ALLOW"})
 
     def test_emit_audit_swallows_http_error(self) -> None:
         # 5xx response: emit_audit must log and return cleanly, not raise.
