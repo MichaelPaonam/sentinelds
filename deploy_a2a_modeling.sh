@@ -5,7 +5,7 @@ trap 'rm -f ./Dockerfile' EXIT
 
 cp src/a2a_agents/a2a_modeling/Dockerfile ./Dockerfile
 
-gcloud run deploy sentinelds-a2a-feature \
+gcloud run deploy sentinelds-a2a-modeling \
   --source=. \
   --region=europe-west4 \
   --project=$GOOGLE_CLOUD_PROJECT \
