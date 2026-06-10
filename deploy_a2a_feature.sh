@@ -18,4 +18,5 @@ gcloud run deploy sentinelds-a2a-feature \
   --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest" \
   --set-secrets="DYNATRACE_API_TOKEN=dynatrace-api-token:latest" \
   --set-secrets="DT_ENVIRONMENT=dt-environment:latest" \
-  --set-secrets="DT_PLATFORM_TOKEN=dt-platform-token:latest"
+  --set-secrets="DT_PLATFORM_TOKEN=dt-platform-token:latest" \
+  --set-env-vars="SENTINEL_AUDIT_URL=$SENTINEL_AUDIT_URL"
