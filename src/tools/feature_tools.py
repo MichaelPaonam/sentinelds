@@ -1,11 +1,14 @@
 """Feature engineering and data analysis tools for the Feature Engineering Agent."""
 
 import glob
+import json
 import os
+import tempfile
 from typing import Any, Dict, List, Union
 
 import pandas as pd
 
+from core.gcs import download_to_path
 from observability import current_span, traced_tool
 
 
@@ -13,8 +16,11 @@ from observability import current_span, traced_tool
 def csv_read(filepath: str) -> dict[str, Any]:
     """Reads a CSV file and returns its basic structure and a preview of rows.
 
+    Accepts local paths or gs:// URIs. For gs:// URIs the file is downloaded to a
+    temp location; the temp file is not deleted (OS tmp cleanup handles it).
+
     Args:
-        filepath: Absolute or relative path to the CSV file.
+        filepath: Absolute/relative path or gs:// URI to the CSV file.
 
     Returns:
         A dictionary containing the column names, shape (rows, cols), data types,
@@ -24,18 +30,26 @@ def csv_read(filepath: str) -> dict[str, Any]:
     span.set_attribute("dataset.uri", filepath)
 
     try:
-        if not os.path.exists(filepath):
-            return {
-                "status": "error",
-                "error": f"File not found: {filepath}",
-            }
+        if filepath.startswith("gs://"):
+            tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+            tmp.close()
+            download_to_path(filepath, tmp.name)
+            local_path = tmp.name
+            span.set_attribute("dataset.source", "gcs")
+        else:
+            if not os.path.exists(filepath):
+                return {
+                    "status": "error",
+                    "error": f"File not found: {filepath}",
+                }
+            local_path = filepath
+            span.set_attribute("dataset.source", "local")
 
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(local_path)
 
         span.set_attribute("dataset.rows", df.shape[0])
         span.set_attribute("dataset.cols", df.shape[1])
 
-        # Prepare serializable types
         dtypes_dict = {col: str(dtype) for col, dtype in df.dtypes.items()}
         head_list = df.head(5).to_dict(orient="records")
 
@@ -57,8 +71,12 @@ def csv_read(filepath: str) -> dict[str, Any]:
 def pandas_profile(filepath: str) -> dict[str, Any]:
     """Profiles a CSV dataset to extract key statistical properties and check distributions.
 
+    Accepts local paths or gs:// URIs. For gs:// URIs the file is downloaded to a
+    temp location; the temp file is not deleted (OS tmp cleanup handles it).
+    Emits dataset.stats.* OTel attributes on the active span.
+
     Args:
-        filepath: Absolute or relative path to the CSV file.
+        filepath: Absolute/relative path or gs:// URI to the CSV file.
 
     Returns:
         A dictionary containing missing value counts, label distributions,
@@ -68,13 +86,22 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
     span.set_attribute("dataset.uri", filepath)
 
     try:
-        if not os.path.exists(filepath):
-            return {
-                "status": "error",
-                "error": f"File not found: {filepath}",
-            }
+        if filepath.startswith("gs://"):
+            tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+            tmp.close()
+            download_to_path(filepath, tmp.name)
+            local_path = tmp.name
+            span.set_attribute("dataset.source", "gcs")
+        else:
+            if not os.path.exists(filepath):
+                return {
+                    "status": "error",
+                    "error": f"File not found: {filepath}",
+                }
+            local_path = filepath
+            span.set_attribute("dataset.source", "local")
 
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(local_path)
         shape = list(df.shape)
 
         span.set_attribute("dataset.rows", df.shape[0])
@@ -100,7 +127,6 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
 
         # Categorical summary / label distributions
         categorical_summary = {}
-        # We also check for 'label' or any string/categorical column specifically
         cat_cols = df.select_dtypes(include=["object", "category"]).columns
         for col in cat_cols:
             counts = df[col].value_counts()
@@ -110,6 +136,44 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
                 proportion = float(cnt / total) if total > 0 else 0.0
                 dist[str(val)] = {"count": int(cnt), "proportion": proportion}
             categorical_summary[col] = dist
+
+        # Emit dataset.stats.* — label is numeric (int 0/1) in the drowsiness schema
+        if "label" in df.columns:
+            counts = df["label"].value_counts()
+            total = len(df)
+            label_dist_dict = {
+                str(k): {"count": int(v), "proportion": float(v / total)}
+                for k, v in counts.items()
+            }
+        else:
+            label_dist_dict = {}
+
+        feature_mean_dict = {
+            col: numeric_summary[col]["mean"]
+            for col in numeric_summary
+            if col != "label"
+        }
+        feature_std_dict = {
+            col: numeric_summary[col]["std"]
+            for col in numeric_summary
+            if col != "label"
+        }
+
+        try:
+            span.set_attribute(
+                "dataset.stats.label_distribution",
+                json.dumps(label_dist_dict, default=float),
+            )
+            span.set_attribute(
+                "dataset.stats.feature_mean",
+                json.dumps(feature_mean_dict, default=float),
+            )
+            span.set_attribute(
+                "dataset.stats.feature_std",
+                json.dumps(feature_std_dict, default=float),
+            )
+        except Exception:
+            pass  # never fail profile output on a bad span backend
 
         return {
             "status": "success",
