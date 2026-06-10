@@ -136,6 +136,10 @@ async def _run_test() -> None:
         )
 
 
+@pytest.mark.skipif(
+    not os.getenv("RUN_SLOW_E2E"),
+    reason="Slow E2E acceptance test; set RUN_SLOW_E2E=1 to include in runs.",
+)
 def test_a1_event_visible_via_mcp_within_60s() -> None:
     """Acceptance criteria 1 + 2 of #27, post-migration shape.
 

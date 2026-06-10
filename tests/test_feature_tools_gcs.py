@@ -10,7 +10,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -85,9 +84,10 @@ class TestPandasProfileGcs(unittest.TestCase):
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
         provider.add_span_processor(SimpleSpanProcessor(exporter))
-        trace.set_tracer_provider(provider)
+        tracer = provider.get_tracer("sentinelds.tools")
 
-        result = pandas_profile(filepath)
+        with patch("observability.tools._TRACER", tracer):
+            result = pandas_profile(filepath)
         spans = exporter.get_finished_spans()
         return result, spans
 

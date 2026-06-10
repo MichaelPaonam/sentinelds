@@ -17,7 +17,12 @@ import pandas as pd
 
 from core.config import settings
 from core.gcs import download_to_path
+from observability import init_tracing
 from tools.feature_tools import pandas_profile
+
+# Match the live Feature Agent so seeded baseline spans land on the same
+# Dynatrace entity Davis AI will compare against during the A2 demo.
+init_tracing(service_name="sentinelds-feature-agent", agent_name="feature_agent")
 
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "baseline_snapshots"
 N_BASELINE_RUNS = 5

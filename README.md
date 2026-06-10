@@ -61,7 +61,7 @@ flowchart LR
     E["<b>1. EMIT</b>\ndataset.stats.* metrics\non CSV ingest"]
     D["<b>2. DETECT</b>\nDavis AI baselines metrics;\nraises Problem on drift"]
     De["<b>3. DECIDE</b>\nSentinel.preflight() queries MCP\n(query-problems, execute-dql)\nreturns HALT"]
-    En["<b>4. ENFORCE</b>\nSentinel halts training tool call\n(is_risky(\"train\") → HALT)"]
+    En["<b>4. ENFORCE</b>\nSentinel halts training tool call\n(is_risky('train') → HALT)"]
 
     E --> D --> De --> En
 ```

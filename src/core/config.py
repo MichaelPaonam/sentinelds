@@ -41,8 +41,8 @@ class Settings(BaseSettings):
 
     # GCS config for A2 demo artefacts
     GCS_BUCKET_NAME: Optional[str] = None
-    A2_CLEAN_BLOB: str = "a2/clean.csv"
-    A2_POISONED_BLOB: str = "a2/poisoned.csv"
+    A2_CLEAN_BLOB: str = "data/a2/clean.csv"
+    A2_POISONED_BLOB: str = "data/a2/poisoned.csv"
 
     # E2E demo defaults
     E2E_DEFAULT_CSV: str = "data/ecg_csv/ddd/01M_1.csv"
