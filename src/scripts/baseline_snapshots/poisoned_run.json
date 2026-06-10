@@ -26,5 +26,5 @@
   },
   "row_count": 825,
   "run": "poisoned",
-  "source_csv": "D:\\project\\sentinelds\\sentinelds\\src\\attack_server\\data\\poisoned.csv"
+  "source_csv": "gs://sentinelds-data-buckets/data/a2/poisoned.csv"
 }
