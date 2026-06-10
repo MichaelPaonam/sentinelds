@@ -38,6 +38,19 @@ from observability import current_span, traced_tool
 MODELS_DIR = "models"
 
 
+def _resolve_local_path(csv_path: str) -> str:
+    """Helper to resolve csv_path to a local filepath, downloading from GCS if needed."""
+    if csv_path.startswith("gs://"):
+        import tempfile
+        from core.gcs import download_to_path
+        tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
+        tmp.close()
+        download_to_path(csv_path, tmp.name)
+        return tmp.name
+    return csv_path
+
+
+
 def handle_imbalance(
     X: pd.DataFrame, y: pd.Series, random_state: int = 42
 ) -> tuple[pd.DataFrame, pd.Series]:
@@ -405,10 +418,11 @@ def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
     span.set_attribute("dataset.target", target_col)
 
     try:
-        if not os.path.exists(csv_path):
+        local_path = _resolve_local_path(csv_path)
+        if not os.path.exists(local_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
 
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(local_path)
         if target_col not in df.columns:
             return {
                 "status": "error",
@@ -463,10 +477,11 @@ def train_xgboost(
     span.set_attribute("model.tuned", tune)
 
     try:
-        if not os.path.exists(csv_path):
+        local_path = _resolve_local_path(csv_path)
+        if not os.path.exists(local_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
 
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(local_path)
         if target_col not in df.columns:
             return {"status": "error", "error": f"Target column '{target_col}' not found."}
 
@@ -561,10 +576,11 @@ def train_catboost(
     span.set_attribute("model.tuned", tune)
 
     try:
-        if not os.path.exists(csv_path):
+        local_path = _resolve_local_path(csv_path)
+        if not os.path.exists(local_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
 
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(local_path)
         if target_col not in df.columns:
             return {"status": "error", "error": f"Target column '{target_col}' not found."}
 
@@ -653,12 +669,13 @@ def evaluate_holdout(
     span.set_attribute("model.path", model_path)
 
     try:
-        if not os.path.exists(csv_path):
+        local_path = _resolve_local_path(csv_path)
+        if not os.path.exists(local_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
         if not os.path.exists(model_path):
             return {"status": "error", "error": f"Model file not found: {model_path}"}
 
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(local_path)
         if target_col not in df.columns:
             return {"status": "error", "error": f"Target column '{target_col}' not found."}
 
@@ -758,12 +775,13 @@ def evaluate_cv(
     span.set_attribute("model.path", model_path)
 
     try:
-        if not os.path.exists(csv_path):
+        local_path = _resolve_local_path(csv_path)
+        if not os.path.exists(local_path):
             return {"status": "error", "error": f"File not found: {csv_path}"}
         if not os.path.exists(model_path):
             return {"status": "error", "error": f"Model file not found: {model_path}"}
 
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(local_path)
         if target_col not in df.columns:
             return {"status": "error", "error": f"Target column '{target_col}' not found."}
 
