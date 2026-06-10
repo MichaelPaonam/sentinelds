@@ -23,6 +23,7 @@ from typing import Any
 
 from mcp import ClientSession
 
+from core.sentinel_audit import emit_audit
 from sentinel.dynatrace_mcp import list_open_problems, run_dql
 
 logger = logging.getLogger("sentinel.preflight")
@@ -222,6 +223,14 @@ class Sentinel:
         structured_log_line = json.dumps(log_payload)
         logger.info(structured_log_line)
         print(f"[Sentinel Preflight] {structured_log_line}", file=sys.stderr)
+
+        # Best-effort fan-out to the Sentinel audit sidecar. emit_audit is a
+        # no-op when SENTINEL_AUDIT_URL is unset and swallows all errors, so
+        # this cannot affect the verdict the gate has already decided.
+        try:
+            await emit_audit({"event.type": "sentinel.preflight", **log_payload})
+        except Exception as exc:  # extra belt-and-braces — emit_audit already swallows
+            logger.debug("emit_audit raised unexpectedly: %s", exc)
 
         return decision
 

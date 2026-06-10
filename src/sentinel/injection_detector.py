@@ -31,6 +31,8 @@ from typing import Optional
 
 import httpx
 
+from core.sentinel_audit import emit_audit_sync
+
 logger = logging.getLogger("sentinel.injection_detector")
 
 
@@ -230,6 +232,22 @@ def emit_injection_candidate(
         "Authorization": f"Api-Token {dynatrace_api_token}",
         "Content-Type": "application/json; charset=utf-8",
     }
+
+    # Best-effort fan-out to the Sentinel audit sidecar. No-op when
+    # SENTINEL_AUDIT_URL is unset; never raises (see core.sentinel_audit).
+    # We mirror the BIZ_EVENT properties so the sidecar can wrap them in an
+    # OTel span and re-emit on the sentinelds-sentinel service entity.
+    emit_audit_sync(
+        {
+            "event.type": "sentinelds.injection.candidate",
+            "span.id": span_id,
+            "matched_categories": sorted(categories),
+            "match_count": len(matches),
+            "excerpt_hash": top_match.excerpt_hash,
+            "source_url": source_url,
+            "workspace_entity_id": workspace_entity_id,
+        }
+    )
 
     try:
         response = httpx.post(endpoint, json=event_body, headers=headers, timeout=5.0)
