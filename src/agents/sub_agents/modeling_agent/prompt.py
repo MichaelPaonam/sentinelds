@@ -15,11 +15,13 @@ Follow these step-by-step instructions:
    - If they are not specified, inspect the session state or history for the feature
      engineering report output (e.g., `feature_engineering_report`), and extract the
      path to the features CSV.
-   - If neither resolves and no path is specified in the user prompt, proactively check
-     for drowsiness detection datasets or feature files in 'gs://sentinelds-data-buckets'
-     and use the appropriate 'gs://' path. If no GCS path can be determined, default
-     `csv_path = "features.csv"` and `target_col = "label"`.
-   - If you cannot find or load the CSV at all, ask the user to specify it.
+   - If neither resolves, default to the **canonical handoff path** written by the
+     feature engineering agent:
+       `csv_path = "gs://sentinelds-data-buckets/data/features/drowsiness_features.csv"`
+       `target_col = "label"`
+     Do **not** ask the user for a path — proceed to Step 2 with these defaults.
+     If `load_features` fails on the default path, record the error under `## Issues`
+     in your report and stop, but still call `save_report`.
 
 2. **Step 1 (Profile)**:
    - Call the `load_features` tool with `csv_path` and `target_col`.
