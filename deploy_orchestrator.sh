@@ -38,8 +38,8 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore")
 
-# FEATURE_AGENT_CARD_BASE_URL = os.getenv("FEATURE_AGENT_CARD_BASE_URL", "http://localhost:8080")
-# MODELING_AGENT_CARD_BASE_URL = os.getenv("MODELING_AGENT_CARD_BASE_URL", "http://localhost:8080")
+FEATURE_AGENT_CARD_BASE_URL = os.getenv("FEATURE_AGENT_CARD_BASE_URL", "http://localhost:8080")
+MODELING_AGENT_CARD_BASE_URL = os.getenv("MODELING_AGENT_CARD_BASE_URL", "http://localhost:8080")
 RESEARCH_AGENT_CARD_BASE_URL = os.getenv("RESEARCH_AGENT_CARD_BASE_URL", "http://localhost:8080")
 
 research_agent = RemoteA2aAgent(
@@ -49,27 +49,27 @@ research_agent = RemoteA2aAgent(
                  and inform feature engineering and modeling.",
 )
 
-# feature_agent = RemoteA2aAgent(
-#     name="feature_agent",
-#     agent_card=f"{FEATURE_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
-#     description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals \\
-#     into ML-ready features.",
-# )
+feature_agent = RemoteA2aAgent(
+    name="feature_agent",
+    agent_card=f"{FEATURE_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
+    description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals \\
+    into ML-ready features.",
+)
 
-# modeling_agent = RemoteA2aAgent(
-#     name="modeling_agent",
-#     agent_card=f"{MODELING_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
-#     description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered \\
-#     features and produces evaluation reports.",
-# )
+modeling_agent = RemoteA2aAgent(
+    name="modeling_agent",
+    agent_card=f"{MODELING_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
+    description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered \\
+    features and produces evaluation reports.",
+)
 
 root_agent = SequentialAgent(
     name="root_agent",
     description="Sequential data-science pipeline: research → features → modeling.",
     sub_agents=[
         research_agent,
-        # feature_agent,
-        # modeling_agent,
+        feature_agent,
+        modeling_agent,
     ],
 )
 
@@ -152,7 +152,7 @@ gcloud run deploy sentinelds-orchestrator \
   --region=europe-west4 \
   --project=$GOOGLE_CLOUD_PROJECT \
   --allow-unauthenticated \
-  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=$RESEARCH_AGENT_CARD_BASE_URL" \
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=$RESEARCH_AGENT_CARD_BASE_URL,FEATURE_AGENT_CARD_BASE_URL=$FEATURE_AGENT_CARD_BASE_URL,MODELING_AGENT_CARD_BASE_URL=$MODELING_AGENT_CARD_BASE_URL" \
   --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest"
 
 # cleanup runs via the EXIT trap above
