@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelDS — Multi-Agent Interceptor Console</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Retro Monospace Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- CRT Screen Overlay Effects -->
+    <div class="crt-overlay"></div>
+    <div class="scanlines"></div>
+
+    <div class="terminal-container">
+        <!-- Console Header / Shell Art -->
+        <header class="terminal-header">
+            <div class="brand-cli">
+                <pre class="ascii-logo">
+  ___ ___ _  _ _____ ___ _  _ ___ _    ___  ___ 
+ / __| __| \| |_   _|_ _| \| | __| |  |   \/ __|
+ \__ \ _|| .` | | |  | || .` | _|| |__| |) \__ \
+ |___/___|_|\_| |_| |___|_|\_|___|____|___/|___/
+                </pre>
+                <div class="cli-prompt">
+                    <span class="prompt-user">root@sentinelds</span>:<span class="prompt-dir">~</span>$ <span class="prompt-cmd">run security_agent_console --interactive</span>
+                </div>
+                <div class="typewriter-sub">
+                    <span class="system-status-indicator">[CONSOLE READY]</span> Multi-agent interactive session is armed.<span class="cursor-block">█</span>
+                </div>
+            </div>
+            
+            <!-- Controls Interface (Bracket-bordered buttons) -->
+            <div class="terminal-controls">
+                <div class="control-line">
+                    <span class="control-label">CONNECTION:</span>
+                    <button class="connection-badge-btn" id="btn-toggle-connection">[ SANDBOX SIMULATION ]</button>
+                </div>
+                
+                <a href="index.html" class="btn btn-sim" id="btn-dashboard-nav" style="text-decoration: none;">
+                    [ F4: OBSERVABILITY DASHBOARD ]
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Terminal Grid Layout for Chat -->
+        <main class="terminal-grid-chat">
+            
+            <!-- LEFT SECTION: ACTIVE AGENT SESSION CONSOLE -->
+            <section class="pane panel-console-session">
+                <div class="pane-header">
+                    <h2>ACTIVE MULTI-AGENT SECURE SESSION CONSOLE</h2>
+                    <span class="pane-badge" id="console-mode-badge">[ SIMULATOR MODE ]</span>
+                </div>
+                
+                <div class="pane-content" style="height: 100%;">
+                    <!-- Scrollable Log Stream -->
+                    <div class="console-log-stream" id="chat-stream">
+                        <div class="chat-message system-log">
+                            >>> [SYSTEM] Establishing secure, authenticated secure tunnel to orchestrator...
+                        </div>
+                        <div class="chat-message system-log">
+                            >>> [SYSTEM] Local OpenTelemetry instrumentation initialized (GoogleGenAiSdkInstrumentor).
+                        </div>
+                        <div class="chat-message system-log">
+                            >>> [SYSTEM] Sentinel Pre-flight supervisions active. Fail-Closed posture ARMED.
+                        </div>
+                        <div class="chat-message system-log">
+                            >>> [SYSTEM] Monospace session ready. Choose a quick prompt below or type your instruction.
+                        </div>
+                    </div>
+                    
+                    <!-- Console input line -->
+                    <div class="console-input-line">
+                        <span class="console-prompt-label">USER@CONSOLE:~$</span>
+                        <div class="console-input-wrapper">
+                            <input type="text" class="console-input" id="chat-input" placeholder="Type instruction here (e.g. 'Summarize biomarkers')..." autofocus autocomplete="off">
+                            <span class="cursor-block" style="margin-left: 0;">█</span>
+                        </div>
+                    </div>
+
+                    <!-- Suggestions & Quick Prompt Cards -->
+                    <div class="prompt-suggestions">
+                        <div class="prompt-suggestions-title">Quick Action Scenarios:</div>
+                        <div class="prompt-suggestions-grid">
+                            <!-- Scenario 1: Safe Research -->
+                            <button class="prompt-card" data-prompt-type="safe">
+                                <div class="card-scenario">[ SAFE ] F1: Literature Synthesis</div>
+                                <div class="card-text">Conduct literature review on drowsiness biomarkers and output summary report.</div>
+                            </button>
+                            
+                            <!-- Scenario 2: Prompt Injection -->
+                            <button class="prompt-card" data-prompt-type="injection">
+                                <div class="card-scenario">[ ATTACK ] F2: Indirect Prompt Injection</div>
+                                <div class="card-text">Fetch drowsiness studies at rogue-papers.net (Triggers exfiltration prompt injection).</div>
+                            </button>
+                            
+                            <!-- Scenario 3: Data Poisoning -->
+                            <button class="prompt-card" data-prompt-type="poisoning">
+                                <div class="card-scenario">[ ATTACK ] F5: Training Data Poisoning</div>
+                                <div class="card-text">Train an XGBoost drowsiness model on latest data/raw/poisoned.csv dataset.</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT SECTION: WORKSPACE ENFORCEMENT HUD -->
+            <section class="pane panel-enforcement-hud">
+                <div class="pane-header">
+                    <h2>SECURE ENFORCEMENT HUD</h2>
+                    <span class="pane-badge" id="hud-alert-badge">[ INTEGRITY OK ]</span>
+                </div>
+                
+                <div class="pane-content" style="gap: 16px;">
+                    <!-- System Daemons Status -->
+                    <div class="syslog-divider">=============== SYSTEM STATUS ===============</div>
+                    <div class="topology-cli-list" style="font-size: 16px;">
+                        <div class="agent-process-row" id="hud-research-row">
+                            <span class="process-indicator stat-healthy">[ OK ]</span>
+                            <span class="process-name" style="min-width: 110px;">RESEARCH</span>
+                            <span class="process-status">ACTIVE</span>
+                        </div>
+                        <div class="agent-process-row" id="hud-feature-row">
+                            <span class="process-indicator stat-healthy">[ OK ]</span>
+                            <span class="process-name" style="min-width: 110px;">FEATURE_ENG</span>
+                            <span class="process-status">ACTIVE</span>
+                        </div>
+                        <div class="agent-process-row" id="hud-modeling-row">
+                            <span class="process-indicator stat-healthy">[ OK ]</span>
+                            <span class="process-name" style="min-width: 110px;">MODELLING</span>
+                            <span class="process-status">ACTIVE</span>
+                        </div>
+                        <div class="agent-process-row" id="hud-sentinel-row">
+                            <span class="process-indicator stat-healthy">[ OK ]</span>
+                            <span class="process-name" style="min-width: 110px;">SENTINEL</span>
+                            <span class="process-status">MONITORING</span>
+                        </div>
+                    </div>
+
+                    <!-- Active Problems Feed -->
+                    <div class="syslog-divider">============== RECON ALERTS ==============</div>
+                    <div class="problem-stream-container" id="hud-problems-timeline" style="max-height: 160px; font-size: 15px;">
+                        <div class="timeline-empty-state" style="font-size: 16px;">
+                            <p>>>> NO CONTEXT DRIFT OR EXPLOITS LOADED.</p>
+                        </div>
+                    </div>
+
+                    <!-- Abbreviated Decision table -->
+                    <div class="syslog-divider">=========== PRE-FLIGHT VERDICTS ===========</div>
+                    <div class="scroll-table-container" style="max-height: 200px; padding: 0;">
+                        <pre class="ascii-table-wrapper" id="hud-decision-table" style="font-size: 13px;">
++--------+---------+-------------------+---------+
+| TIME   | AGENT   | INTERCEPTED CALL  | VERDICT |
++--------+---------+-------------------+---------+
+<div id="hud-decision-log-tbody"></div>+--------+---------+-------------------+---------+
+                        </pre>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+        
+        <!-- Terminal Footer -->
+        <footer class="terminal-footer">
+            <span class="footer-left">SYS_OPERATIONS: SECURE INTERACTIVE NODE // RETRO AGENT CLIENT SPIKE</span>
+            <span class="footer-right">STATUS: <span class="badge-status-ready" id="footer-status-badge">ACTIVE: ARMED & MONITORING</span></span>
+        </footer>
+    </div>
+    
+    <script src="chat.js"></script>
+</body>
+</html>
