@@ -85,8 +85,7 @@ def main() -> None:
 
     if len(triggers) == 0:
         print(
-            "\n[demo_a2] WARNING: no trigger rows found in poisoned CSV — "
-            "check generate_datasets."
+            "\n[demo_a2] WARNING: no trigger rows found in poisoned CSV — check generate_datasets."
         )
         return
 

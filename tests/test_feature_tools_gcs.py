@@ -56,6 +56,7 @@ class TestCsvReadGcs(unittest.TestCase):
         with patch.dict(sys.modules, {"google.cloud.storage": storage_mock}):
             # Ensure any cached import is replaced
             import core.gcs as gcs_module  # noqa: F401
+
             result = csv_read("gs://fake-bucket/a2/clean.csv")
 
         self.assertEqual(result["status"], "success")

@@ -95,8 +95,7 @@ def _print_drift_comparison(
 def main() -> None:
     if not settings.GCS_BUCKET_NAME:
         raise RuntimeError(
-            "GCS_BUCKET_NAME is not set. "
-            "Export it or add it to .env before running seed_baseline."
+            "GCS_BUCKET_NAME is not set. Export it or add it to .env before running seed_baseline."
         )
 
     clean_uri = f"gs://{settings.GCS_BUCKET_NAME}/{settings.A2_CLEAN_BLOB}"

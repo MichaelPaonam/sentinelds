@@ -142,21 +142,16 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
             counts = df["label"].value_counts()
             total = len(df)
             label_dist_dict = {
-                str(k): {"count": int(v), "proportion": float(v / total)}
-                for k, v in counts.items()
+                str(k): {"count": int(v), "proportion": float(v / total)} for k, v in counts.items()
             }
         else:
             label_dist_dict = {}
 
         feature_mean_dict = {
-            col: numeric_summary[col]["mean"]
-            for col in numeric_summary
-            if col != "label"
+            col: numeric_summary[col]["mean"] for col in numeric_summary if col != "label"
         }
         feature_std_dict = {
-            col: numeric_summary[col]["std"]
-            for col in numeric_summary
-            if col != "label"
+            col: numeric_summary[col]["std"] for col in numeric_summary if col != "label"
         }
 
         try:

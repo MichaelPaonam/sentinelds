@@ -25,9 +25,7 @@ def download_to_path(gs_uri: str, local_path: str) -> str:
     try:
         from google.cloud import storage  # lazy import so tests can patch cleanly
     except ImportError as exc:
-        raise ImportError(
-            "google-cloud-storage is required. Run: uv sync"
-        ) from exc
+        raise ImportError("google-cloud-storage is required. Run: uv sync") from exc
 
     bucket_name, blob_name = parse_gs_uri(gs_uri)
     os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
