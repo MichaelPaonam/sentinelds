@@ -6,7 +6,7 @@ This document defines the retro-brutalist **Terminal CLI** design system for the
 
 ## 1. Core Philosophy & Constraints
 
-*   **100% Pure Vanilla Web**: Built entirely with standard HTML5, CSS3, and ES6 Javascript. No build steps, no JSX/TSX compilers, no module bundlers, and zero third-party Node.js dependencies.
+*   **100% Pure Vanilla Web**: Built entirely with standard HTML5, CSS3, and ES6 JavaScript. No build steps, no JSX/TSX compilers, no module bundlers, and zero third-party Node.js dependencies.
 *   **Local File System Portability**: The dashboard must load, render, and execute flawlessly when opened directly from the file system (e.g., via `file:///` protocols in Google Chrome/Firefox) or via an advisory local HTTP server (`python -m http.server`).
 *   **Total Monospace Uniformity**: A standard monospace layout where every character, label, title, and form occupies perfect fixed-width grid alignments.
 *   **Brutalist Borders**: Absolute enforcement of hard edges. **No rounded corners are permitted (`border-radius: 0px !important`).**

@@ -51,7 +51,7 @@ Planned local tooling in `PLAN.md` is Python 3.11+, `uv` or `poetry`, Node.js 20
 Prefer Python-first conventions because the planned runtime is ADK + data-science tooling. Use 4-space indentation, `snake_case` for modules and functions, `PascalCase` for classes, and short, descriptive file names. Keep agent boundaries explicit in names such as `research_agent.py` or `sentinel_policy.py`. Favor small modules over monolithic notebooks or scripts.
 
 ## Dashboard & Front-End Design System
-To maintain visual consistency and prevent regression, any modification or addition to the frontend dashboard (`src/dashboard/`) must strictly adhere to the retro-brutalist Terminal CLI guidelines defined in [DESIGN.md](file:///C:/Users/henju/Projects/sentinelds/DESIGN.md). Always consult [DESIGN.md](file:///C:/Users/henju/Projects/sentinelds/DESIGN.md) before editing frontend styles, assets, or interactive layouts.
+To maintain visual consistency and prevent regression, any modification or addition to the frontend dashboard (`src/dashboard/`) must strictly adhere to the retro-brutalist Terminal CLI guidelines defined in [DESIGN.md](./DESIGN.md). Always consult [DESIGN.md](./DESIGN.md) before editing frontend styles, assets, or interactive layouts.
 
 ## Testing Guidelines
 Add tests alongside new code rather than deferring them. Use `tests/` with file names like `test_research_agent.py`. Cover agent orchestration, Sentinel pre-flight decisions, and telemetry emission paths first. If you add a test runner, standardize on one command and document it in `README.md`.
