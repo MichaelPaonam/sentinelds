@@ -1,44 +1,40 @@
-"""Drop part_metadata from A2A→GenAI Parts when running on Vertex.
+"""Drop ``part_metadata`` from every ``google.genai.types.Part`` on Vertex.
 
 Vertex's google-genai client raises:
-  "part_metadata parameter is only supported in Gemini Developer API mode,
-   not in Gemini Enterprise Agent Platform mode."
 
-ADK's A2A inbound converter sets this field on every Part it builds (see
-google.adk.a2a.converters.part_converter.convert_a2a_part_to_genai_part),
-which breaks every A2A turn on Vertex. This module patches that out at two
-layers so neither layer is enough on its own:
+    "part_metadata parameter is only supported in Gemini Developer API mode,
+     not in Gemini Enterprise Agent Platform mode."
 
-1. **Module-attribute rewrite** — replace
-   ``part_converter.convert_a2a_part_to_genai_part`` with a wrapper that
-   nulls ``out.part_metadata``. This catches any caller that does
-   ``part_converter.convert_a2a_part_to_genai_part(...)`` lookup-per-call.
+The field's own description in google-genai confirms it: *"This field is not
+supported in Vertex AI."* ADK's A2A inbound path nonetheless populates it
+(``google.adk.a2a.converters.part_converter.convert_a2a_part_to_genai_part``
+copies the A2A part's metadata onto the GenAI ``Part``), so every A2A turn on
+Vertex crashes when the request is serialized for the Vertex endpoint.
 
-2. **Default-argument rewrite** — three ADK modules
-   (``request_converter``, ``event_converter``, ``long_running_functions``)
-   capture the original function as a function default arg at *def* time:
+Earlier versions of this module surgically rewrote the captured copies of
+``convert_a2a_part_to_genai_part`` in three ADK consumer modules
+(``request_converter``, ``event_converter``, ``long_running_functions``).
+That covered the A2A-inbound path but missed at least three other call
+sites that also bind the converter as a function default or Pydantic field
+default at class-definition time:
 
-       def fn(..., part_converter = convert_a2a_part_to_genai_part):
+* ``google.adk.a2a.converters.to_adk_event`` — five functions whose
+  ``part_converter`` default fires on the inbound A2A → ADK Part conversion
+  that feeds the LLM call (the path actually shown in the production
+  traceback).
+* ``google.adk.a2a.executor.config.A2aAgentExecutorConfig.a2a_part_converter``
+  and ``google.adk.a2a.agent.config`` — Pydantic field defaults captured
+  at class-creation time.
 
-   Default args bind to the function object that exists when the ``def``
-   statement runs — which happened the moment that module was imported by
-   ADK. Module-attribute rewrite alone does NOT update those captured
-   defaults; we have to rewrite each function's ``__defaults__`` tuple in
-   place. We also rebind the module-level alias copied by
-   ``from .part_converter import convert_a2a_part_to_genai_part`` so any
-   ``module.func`` lookup or fallback expression sees the patched version.
+Rather than chase ADK's internal call graph version by version, this module
+patches ``Part`` itself: every ``Part`` constructed in this process has
+``part_metadata`` nulled. That is strictly broader than the per-consumer
+rewrite, removes the dependency on ADK's internal layout, and survives ADK
+upgrades that introduce new call sites.
 
-Side-effect on import: ``install()`` runs at module import time. Idempotent —
-safe to import from multiple entry points. Activated only when
-``GOOGLE_GENAI_USE_VERTEXAI`` is truthy; on the Developer API path the
-metadata is preserved as ADK intends.
-
-**Import order matters.** Import this module BEFORE any ``google.adk.a2a``
-symbol. Because the patch reaches into ADK's consumer modules and rewrites
-their ``__defaults__`` tuples, importing it after ``to_a2a`` /
-``get_fast_api_app`` / ``RemoteA2aAgent`` *also* works in principle — but
-importing it first keeps the failure surface obvious and the patched state
-symmetric across runs.
+The patch is activated only when ``GOOGLE_GENAI_USE_VERTEXAI`` is truthy; on
+the Developer API path the field is preserved as ADK and google-genai
+intend. Idempotent — safe to import from multiple entry points.
 """
 
 from __future__ import annotations
@@ -55,140 +51,37 @@ def _is_vertex() -> bool:
     return os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("1", "true")
 
 
-def _make_patched(original):
-    """Return a wrapper that calls *original* and nulls part_metadata on the
-    returned Part. The flag attribute lets repeat calls to install() detect
-    that the wrapper is already in place."""
-
-    def _patched(a2a_part):
-        out = original(a2a_part)
-        if out is not None:
-            try:
-                out.part_metadata = None
-            except Exception:
-                # Pydantic model_config may forbid assignment on some versions;
-                # fall back to model_copy with update.
-                out = out.model_copy(update={"part_metadata": None})
-        return out
-
-    setattr(_patched, _PATCH_FLAG, True)
-    return _patched
-
-
-def _rewrite_defaults_for(module, original, patched) -> int:
-    """Rewrite every function in *module* whose ``__defaults__`` contains
-    *original* so the slot points at *patched* instead.
-
-    Handles three layouts:
-
-    * **Plain function** — rewrite ``func.__defaults__`` directly.
-    * **functools.wraps decorator** (e.g. ADK's ``@a2a_experimental``) —
-      the outer wrapper takes ``(*args, **kwargs)`` and has no defaults of
-      its own; the original function with defaults is reachable via
-      ``func.__wrapped__``. We chase the ``__wrapped__`` chain until we hit
-      something whose ``__defaults__`` contains the original.
-    * **Method on a class** — same shape as plain function or wrapped
-      function; ``dir(module)`` surfaces classes too, but their methods
-      live on the class, not the module. We do not recurse into classes
-      here because ADK's three consumer modules expose all their captured
-      defaults at module scope (verified against ADK 1.x; if a future
-      release moves a default into a class method we'll need to extend).
-
-    Returns the number of function defaults rewritten. install() logs this
-    count so a drift between ADK versions is visible.
-    """
-    rewritten = 0
-    seen_ids = set()
-
-    for attr_name in dir(module):
-        attr = getattr(module, attr_name, None)
-        if attr is None:
-            continue
-
-        # Walk the wrapper chain. functools.wraps sets ``__wrapped__``.
-        target = attr
-        depth = 0
-        while target is not None and depth < 8:
-            target_id = id(target)
-            if target_id in seen_ids:
-                break
-            seen_ids.add(target_id)
-
-            defaults = getattr(target, "__defaults__", None)
-            if defaults and original in defaults:
-                new_defaults = tuple(patched if d is original else d for d in defaults)
-                try:
-                    target.__defaults__ = new_defaults  # type: ignore[attr-defined]
-                    rewritten += 1
-                except Exception as exc:
-                    logger.warning(
-                        "genai_compat: could not rewrite defaults on %s.%s (depth=%d): %s",
-                        module.__name__,
-                        attr_name,
-                        depth,
-                        exc,
-                    )
-
-            # Climb to the wrapped function if any.
-            target = getattr(target, "__wrapped__", None)
-            depth += 1
-
-    return rewritten
-
-
 def install() -> None:
     if not _is_vertex():
         return
 
-    # 1. Wrap the public converter.
-    from google.adk.a2a.converters import part_converter as _pc
+    from google.genai import types as _gt  # noqa: PLC0415
 
-    if getattr(_pc.convert_a2a_part_to_genai_part, _PATCH_FLAG, False):
+    if getattr(_gt.Part, _PATCH_FLAG, False):
         return  # already patched — idempotent
 
-    original = _pc.convert_a2a_part_to_genai_part
-    patched = _make_patched(original)
-    _pc.convert_a2a_part_to_genai_part = patched
+    original_init = _gt.Part.__init__
 
-    # 2. Force-import the three ADK consumer modules that capture this
-    #    function as a default arg or module-level binding, then rewrite
-    #    the captured copies.
-    #
-    #    * ``request_converter`` and ``event_converter`` use ``original`` as
-    #      a function default — their ``def`` ran at import time and bound
-    #      the original. We must rewrite their ``__defaults__`` tuples.
-    #    * ``long_running_functions`` uses ``original`` at instance __init__
-    #      via ``part_converter or convert_a2a_part_to_genai_part``. The
-    #      module-level name still points at the original until we rebind
-    #      it here (the ``from .part_converter import ...`` copies the
-    #      reference into the module's globals at import time).
-    from google.adk.a2a.converters import (  # noqa: PLC0415
-        event_converter as _ec,
-    )
-    from google.adk.a2a.converters import (  # noqa: PLC0415
-        long_running_functions as _lrf,
-    )
-    from google.adk.a2a.converters import (  # noqa: PLC0415
-        request_converter as _rc,
-    )
+    def patched_init(self, *args, **kwargs):
+        # Strip both the snake_case and camelCase aliases before construction
+        # so Pydantic never validates a non-None value into the field.
+        kwargs.pop("part_metadata", None)
+        kwargs.pop("partMetadata", None)
+        original_init(self, *args, **kwargs)
+        # Defensive: if a caller built the Part via ``model_validate`` /
+        # ``model_construct`` and bypassed ``__init__`` kwargs, force the
+        # field to ``None`` after the fact. ``object.__setattr__`` sidesteps
+        # any ``model_config = ConfigDict(frozen=True)`` that future
+        # google-genai releases might add.
+        try:
+            object.__setattr__(self, "part_metadata", None)
+        except Exception:
+            pass
 
-    total_defaults = 0
-    for consumer in (_rc, _ec, _lrf):
-        # Rebind the module-level alias so any ``module.func`` lookup or
-        # ``part_converter or convert_a2a_part_to_genai_part`` fallback uses
-        # the patched version. setattr keeps this invisible to static type
-        # checkers — these three modules each ``from .part_converter import
-        # convert_a2a_part_to_genai_part`` at the top, so the attribute does
-        # exist at runtime, but mypy can't see it across the module union.
-        if getattr(consumer, "convert_a2a_part_to_genai_part", None) is original:
-            setattr(consumer, "convert_a2a_part_to_genai_part", patched)
-        # Rewrite captured function defaults.
-        total_defaults += _rewrite_defaults_for(consumer, original, patched)
+    _gt.Part.__init__ = patched_init
+    setattr(_gt.Part, _PATCH_FLAG, True)
 
-    logger.info(
-        "genai_compat: part_metadata stripping installed (rewrote %d ADK function default(s))",
-        total_defaults,
-    )
+    logger.info("genai_compat: Part.__init__ patched to null part_metadata on Vertex")
 
 
 install()

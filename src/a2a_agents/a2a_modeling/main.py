@@ -13,15 +13,16 @@ from observability import init_tracing, instrument_genai
 init_tracing(service_name="sentinelds-modeling-agent", agent_name="modeling_agent")
 instrument_genai()
 
-# Patch ADK's A2A→GenAI part converter BEFORE importing any other google.adk.a2a
-# module. ADK callers capture `convert_a2a_part_to_genai_part` as a default arg
-# at function-definition time, so the patch must be in place before those caller
-# modules are imported (e.g. via `to_a2a`, `RemoteA2aAgent`).
+# Patch google.genai.types.Part to null part_metadata BEFORE importing any
+# google.adk.a2a module. The patch installs at Part.__init__, so strictly it
+# only needs to land before any Part is constructed — but importing it first
+# keeps the ordering obvious and matches the intent of the comment.
+from core import genai_compat  # noqa: E402,F401
+
 import uvicorn  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.modeling_agent.agent import modeling_agent  # noqa: E402
-from core import genai_compat  # noqa: E402,F401
 
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore", category=UserWarning)
