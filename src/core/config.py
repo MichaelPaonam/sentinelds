@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     DEFAULT_MODEL: str = "gemini-2.5-flash-lite"
     THINKING_MODEL: str = "gemini-2.5-flash"
 
+    # GCS config for A2 demo artefacts
+    GCS_BUCKET_NAME: Optional[str] = None
+    A2_CLEAN_BLOB: str = "data/a2/clean.csv"
+    A2_POISONED_BLOB: str = "data/a2/poisoned.csv"
+
     # E2E demo defaults
     E2E_DEFAULT_CSV: str = "data/ecg_csv/ddd/01M_1.csv"
     E2E_PAPER_URL: str = "http://localhost:8001/papers"

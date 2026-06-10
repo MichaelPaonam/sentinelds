@@ -38,8 +38,8 @@ from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore")
 
-# FEATURE_AGENT_CARD_BASE_URL = os.getenv("FEATURE_AGENT_CARD_BASE_URL", "http://localhost:8080")
-# MODELING_AGENT_CARD_BASE_URL = os.getenv("MODELING_AGENT_CARD_BASE_URL", "http://localhost:8080")
+FEATURE_AGENT_CARD_BASE_URL = os.getenv("FEATURE_AGENT_CARD_BASE_URL", "http://localhost:8080")
+MODELING_AGENT_CARD_BASE_URL = os.getenv("MODELING_AGENT_CARD_BASE_URL", "http://localhost:8080")
 RESEARCH_AGENT_CARD_BASE_URL = os.getenv("RESEARCH_AGENT_CARD_BASE_URL", "http://localhost:8080")
 
 research_agent = RemoteA2aAgent(
@@ -49,27 +49,27 @@ research_agent = RemoteA2aAgent(
                  and inform feature engineering and modeling.",
 )
 
-# feature_agent = RemoteA2aAgent(
-#     name="feature_agent",
-#     agent_card=f"{FEATURE_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
-#     description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals \\
-#     into ML-ready features.",
-# )
+feature_agent = RemoteA2aAgent(
+    name="feature_agent",
+    agent_card=f"{FEATURE_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
+    description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals \\
+    into ML-ready features.",
+)
 
-# modeling_agent = RemoteA2aAgent(
-#     name="modeling_agent",
-#     agent_card=f"{MODELING_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
-#     description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered \\
-#     features and produces evaluation reports.",
-# )
+modeling_agent = RemoteA2aAgent(
+    name="modeling_agent",
+    agent_card=f"{MODELING_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
+    description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered \\
+    features and produces evaluation reports.",
+)
 
 root_agent = SequentialAgent(
     name="root_agent",
     description="Sequential data-science pipeline: research → features → modeling.",
     sub_agents=[
         research_agent,
-        # feature_agent,
-        # modeling_agent,
+        feature_agent,
+        modeling_agent,
     ],
 )
 
@@ -93,6 +93,7 @@ instrument_genai()
 from core import genai_compat  # noqa: E402,F401
 
 from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
+from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore")
@@ -111,6 +112,23 @@ app = get_fast_api_app(
     session_service_uri=SESSION_SERVICE_URI,
     web=True,
     allow_origins=["*"],
+)
+
+# Belt-and-braces CORS at the ASGI layer. get_fast_api_app(allow_origins=["*"])
+# only configures CORS on the routes ADK mounts; this middleware guarantees
+# Access-Control-Allow-Origin: * on every response, including any route added
+# later or any error response. Wildcard origin is fine here because the
+# orchestrator is unauthenticated by design (Cloud Run --allow-unauthenticated)
+# — credentials are not in play, so the browser will not require a specific
+# origin echo. allow_credentials must stay False for "*" to be valid per the
+# CORS spec.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 if __name__ == "__main__":
@@ -152,7 +170,18 @@ gcloud run deploy sentinelds-orchestrator \
   --region=europe-west4 \
   --project=$GOOGLE_CLOUD_PROJECT \
   --allow-unauthenticated \
-  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT,GOOGLE_CLOUD_LOCATION=europe-west4,RESEARCH_AGENT_CARD_BASE_URL=$RESEARCH_AGENT_CARD_BASE_URL" \
-  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest,DYNATRACE_API_TOKEN=dynatrace-api-token:latest"
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT" \
+  --set-env-vars="GOOGLE_CLOUD_LOCATION=europe-west4" \
+  --set-env-vars="OTEL_SEMCONV_STABILITY_OPT_IN=$OTEL_SEMCONV_STABILITY_OPT_IN" \
+  --set-env-vars="GCS_BUCKET_NAME=$GCS_BUCKET_NAME" \
+  --set-secrets="DYNATRACE_API_URL=dynatrace-api-url:latest" \
+  --set-secrets="DYNATRACE_API_TOKEN=dynatrace-api-token:latest" \
+  --set-secrets="DT_ENVIRONMENT=dt-environment:latest" \
+  --set-secrets="DT_PLATFORM_TOKEN=dt-platform-token:latest" \
+  --set-env-vars="RESEARCH_AGENT_CARD_BASE_URL=$RESEARCH_AGENT_CARD_BASE_URL" \
+  --set-env-vars="FEATURE_AGENT_CARD_BASE_URL=$FEATURE_AGENT_CARD_BASE_URL" \
+  --set-env-vars="MODELING_AGENT_CARD_BASE_URL=$MODELING_AGENT_CARD_BASE_URL" \
+  --set-env-vars="SENTINEL_AUDIT_URL=$SENTINEL_AUDIT_URL"
 
 # cleanup runs via the EXIT trap above

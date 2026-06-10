@@ -26,6 +26,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "xgboost>=2.0",
     "catboost>=1.2",
+    "google-cloud-storage>=2.16",
     "joblib>=1.3",
     "optuna>=3.5.0",
     "shap>=0.44.0",
@@ -47,6 +48,12 @@ package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+markers = [
+    "live_dt: requires DT_ENVIRONMENT and DT_PLATFORM_TOKEN; hits the live Dynatrace tenant",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:mcp",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

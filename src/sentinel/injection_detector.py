@@ -31,6 +31,8 @@ from typing import Optional
 
 import httpx
 
+from core.sentinel_audit import emit_audit_sync
+
 logger = logging.getLogger("sentinel.injection_detector")
 
 
@@ -205,7 +207,7 @@ def emit_injection_candidate(
     categories = list({m.category for m in matches})
     top_match = matches[0]
 
-    event_body = {
+    event_body: dict = {
         "eventType": "CUSTOM_INFO",
         "title": "sentinelds.injection.candidate",
         "properties": {
@@ -218,14 +220,34 @@ def emit_injection_candidate(
             "source_url": source_url,
             "workspace_entity_id": workspace_entity_id,
         },
-        "entitySelector": f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")',
     }
+    # Only attach the entitySelector when we have a real Dynatrace entity ID.
+    # A placeholder like "WORKSPACE-1" causes a 400 from events/ingest.
+    # Without it the event is still ingested and queryable via DQL.
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        event_body["entitySelector"] = f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")'
 
     endpoint = f"{dynatrace_api_url.rstrip('/')}/api/v2/events/ingest"
     headers = {
         "Authorization": f"Api-Token {dynatrace_api_token}",
         "Content-Type": "application/json; charset=utf-8",
     }
+
+    # Best-effort fan-out to the Sentinel audit sidecar. No-op when
+    # SENTINEL_AUDIT_URL is unset; never raises (see core.sentinel_audit).
+    # We mirror the BIZ_EVENT properties so the sidecar can wrap them in an
+    # OTel span and re-emit on the sentinelds-sentinel service entity.
+    emit_audit_sync(
+        {
+            "event.type": "sentinelds.injection.candidate",
+            "span.id": span_id,
+            "matched_categories": sorted(categories),
+            "match_count": len(matches),
+            "excerpt_hash": top_match.excerpt_hash,
+            "source_url": source_url,
+            "workspace_entity_id": workspace_entity_id,
+        }
+    )
 
     try:
         response = httpx.post(endpoint, json=event_body, headers=headers, timeout=5.0)

@@ -16,6 +16,7 @@ from google.genai.types import Content, Part
 dotenv.load_dotenv()
 
 from core.config import settings  # noqa: E402 — must follow dotenv.load_dotenv()
+from sentinel.dynatrace_mcp import DynatraceMCPConfig, dynatrace_session  # noqa: E402
 
 logger = logging.getLogger("sentinelds.e2e")
 
@@ -71,96 +72,131 @@ def _build_prompt(paper_url: str, csv_path: str, target: str) -> str:
     )
 
 
-async def run_demo(prompt: str, csv: str, paper_url: str, target: str) -> None:
+async def run_demo(
+    prompt: str, csv: str, paper_url: str, target: str, no_mcp: bool = False
+) -> None:
     csv_path = str(pathlib.Path(_prepare_csv(csv, target)).resolve())
     final_prompt = prompt or _build_prompt(paper_url, csv_path, target)
 
     from sentinel import SentinelSession, set_sentinel_session  # noqa: PLC0415
 
-    set_sentinel_session(
-        SentinelSession(
-            workspace_entity_id=getattr(settings, "DYNATRACE_WORKSPACE_ENTITY_ID", "WORKSPACE-1"),
-            agent_name="root_agent",
+    sentinel_sess = SentinelSession(
+        workspace_entity_id=getattr(settings, "DYNATRACE_WORKSPACE_ENTITY_ID", "WORKSPACE-1"),
+        agent_name="root_agent",
+    )
+    set_sentinel_session(sentinel_sess)
+
+    # Open the Dynatrace Remote MCP session and wire it into the SentinelSession
+    # so Sentinel.preflight() and Sentinel.notify() can query live Problems/DQL.
+    # Pass --no-mcp to skip (useful if the tenant is unreachable; the gate still
+    # applies fail-closed / fail-open policy for risky tools).
+    async def _run_pipeline(mcp_sess=None):
+        sentinel_sess.mcp_session = mcp_sess
+        if mcp_sess is not None:
+            Sentinel.set_context(
+                session=mcp_sess,
+                workspace_entity_id=sentinel_sess.workspace_entity_id,
+                agent_name=sentinel_sess.agent_name,
+            )
+            print("[e2e] Dynatrace Remote MCP session open — Sentinel pre-flight active")
+        else:
+            print("[e2e] MCP disabled — Sentinel local-flag-only (fail-closed for risky tools)")
+
+        # Import here to avoid circular imports at module load
+        from agents.agent import root_agent  # noqa: PLC0415
+
+        session_service = InMemorySessionService()
+        runner = Runner(
+            agent=root_agent,
+            app_name="sentinelds_e2e",
+            session_service=session_service,
         )
-    )
 
-    # Import here to avoid circular imports at module load
-    from agents.agent import root_agent  # noqa: PLC0415
+        user_id = "e2e_user"
+        session_id = "e2e_session"
+        await session_service.create_session(
+            app_name="sentinelds_e2e",
+            user_id=user_id,
+            session_id=session_id,
+        )
 
-    session_service = InMemorySessionService()
-    runner = Runner(
-        agent=root_agent,
-        app_name="sentinelds_e2e",
-        session_service=session_service,
-    )
+        print(f"\n[e2e] Starting pipeline with prompt:\n  {final_prompt}\n")
 
-    user_id = "e2e_user"
-    session_id = "e2e_session"
-    await session_service.create_session(
-        app_name="sentinelds_e2e",
-        user_id=user_id,
-        session_id=session_id,
-    )
+        event_stream = runner.run(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=Content(parts=[Part.from_text(text=final_prompt)]),
+        )
 
-    print(f"\n[e2e] Starting pipeline with prompt:\n  {final_prompt}\n")
+        try:
+            for event in event_stream:
+                author = getattr(event, "author", None)
+                if hasattr(event, "is_final_response") and event.is_final_response():
+                    content = getattr(event, "content", None)
+                    if content and getattr(content, "parts", None):
+                        text = "".join(
+                            p.text for p in content.parts if p and getattr(p, "text", None)
+                        )
+                        print(f"\n[{author}] FINAL:\n{text.strip()}\n")
+                else:
+                    # Stream intermediate text events for visibility
+                    raw_text = getattr(event, "text", None)
+                    if raw_text:
+                        print(f"[{author}] {str(raw_text).strip()}")
+        except PermissionError as e:
+            import json
+            import re
+            import sys
 
-    event_stream = runner.run(
-        user_id=user_id,
-        session_id=session_id,
-        new_message=Content(parts=[Part.from_text(text=final_prompt)]),
-    )
+            from sentinel.session import get_sentinel_session
 
-    try:
-        for event in event_stream:
-            author = getattr(event, "author", None)
-            if hasattr(event, "is_final_response") and event.is_final_response():
-                content = getattr(event, "content", None)
-                if content and getattr(content, "parts", None):
-                    text = "".join(p.text for p in content.parts if p and getattr(p, "text", None))
-                    print(f"\n[{author}] FINAL:\n{text.strip()}\n")
-            else:
-                # Stream intermediate text events for visibility
-                raw_text = getattr(event, "text", None)
-                if raw_text:
-                    print(f"[{author}] {str(raw_text).strip()}")
-    except PermissionError as e:
-        import json
-        import re
-        import sys
+            sess = get_sentinel_session()
+            if sess is not None:
+                sess.quarantined = True
+                sess.compromised = True
 
-        from sentinel.session import get_sentinel_session
+            tool_name = "unknown_tool"
+            match = re.search(r"Sentinel halted '([^']+)'", str(e))
+            if match:
+                tool_name = match.group(1)
 
-        sess = get_sentinel_session()
-        if sess is not None:
-            sess.quarantined = True
-            sess.compromised = True
+            # Output structured security audit log line
+            audit_payload = {
+                "workspace": sess.workspace_entity_id if sess else "WORKSPACE-1",
+                "agent": sess.agent_name if sess else "root_agent",
+                "tool": tool_name,
+                "rule_fired": "SENTINEL_QUARANTINE",
+                "decision": "HALT",
+                "reason": str(e),
+            }
+            structured_audit_line = json.dumps(audit_payload)
+            logger.error(f"[SECURITY AUDIT] {structured_audit_line}")
+            print(f"[SECURITY AUDIT] {structured_audit_line}", file=sys.stderr)
+            print(
+                f"\n[SECURITY WARNING] Session quarantined! Execution halted on tool '{tool_name}'."
+            )
 
-        tool_name = "unknown_tool"
-        match = re.search(r"Sentinel halted '([^']+)'", str(e))
-        if match:
-            tool_name = match.group(1)
+        # Print final session state keys for verification
+        session = await session_service.get_session(
+            app_name="sentinelds_e2e", user_id=user_id, session_id=session_id
+        )
+        if session:
+            state_keys = list(session.state.keys())
+            print(f"\n[e2e] Final session state keys: {state_keys}")
 
-        # Output structured security audit log line
-        audit_payload = {
-            "workspace": sess.workspace_entity_id if sess else "WORKSPACE-1",
-            "agent": sess.agent_name if sess else "root_agent",
-            "tool": tool_name,
-            "rule_fired": "SENTINEL_QUARANTINE",
-            "decision": "HALT",
-            "reason": str(e),
-        }
-        structured_audit_line = json.dumps(audit_payload)
-        logger.error(f"[SECURITY AUDIT] {structured_audit_line}")
-        print(f"[SECURITY AUDIT] {structured_audit_line}", file=sys.stderr)
-        print(f"\n[SECURITY WARNING] Session quarantined! Execution halted on tool '{tool_name}'.")
+    from sentinel.preflight import Sentinel  # noqa: PLC0415
 
-    # Print final session state keys for verification
-    session = await session_service.get_session(
-        app_name="sentinelds_e2e", user_id=user_id, session_id=session_id
-    )
-    if session:
-        state_keys = list(session.state.keys())
-        print(f"\n[e2e] Final session state keys: {state_keys}")
+    if no_mcp:
+        await _run_pipeline(mcp_sess=None)
+    else:
+        try:
+            cfg = DynatraceMCPConfig.from_env()
+        except KeyError as exc:
+            print(f"[e2e] WARNING: {exc} — running without MCP (fail-closed for risky tools)")
+            await _run_pipeline(mcp_sess=None)
+            return
+        async with dynatrace_session(cfg) as mcp_sess:
+            await _run_pipeline(mcp_sess=mcp_sess)
 
 
 if __name__ == "__main__":
@@ -173,6 +209,11 @@ if __name__ == "__main__":
         "--paper-url", default=DEFAULT_PAPER_URL, help="URL for the research stage."
     )
     parser.add_argument("--target", default=DEFAULT_TARGET, help="Target column name.")
+    parser.add_argument(
+        "--no-mcp",
+        action="store_true",
+        help="Skip the Dynatrace Remote MCP session (Sentinel runs local-flag-only).",
+    )
     args = parser.parse_args()
 
-    asyncio.run(run_demo(args.prompt, args.csv, args.paper_url, args.target))
+    asyncio.run(run_demo(args.prompt, args.csv, args.paper_url, args.target, no_mcp=args.no_mcp))
