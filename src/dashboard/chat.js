@@ -171,19 +171,38 @@ document.addEventListener('DOMContentLoaded', () => {
             streaming: true
         };
 
+        const controller = new AbortController();
+        let watchdogTimer = null;
+        let receivedResponse = false;
+
+        function resetWatchdog() {
+            if (watchdogTimer) clearTimeout(watchdogTimer);
+            watchdogTimer = setTimeout(() => {
+                appendDangerLog("⚠️ [TIMEOUT] Live connection inactive for 30 seconds. Aborting stream.");
+                controller.abort();
+            }, 30000); // 30 seconds inactivity timeout
+        }
+
         try {
+            // Start connection watchdog
+            resetWatchdog();
+
             const response = await fetch(sseUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
+
+            // Headers received successfully - reset watchdog
+            resetWatchdog();
 
             appendSystemLog("Live SSE stream connected. Receiving agentic pipeline trace...");
             
@@ -194,6 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
+
+                // Reset watchdog as we received a chunk of data
+                resetWatchdog();
 
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split("\n");
@@ -208,11 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (rawJson) {
                             try {
                                 const data = JSON.parse(rawJson);
-                                handleLiveADKEvent(data);
+                                if (handleLiveADKEvent(data)) {
+                                    receivedResponse = true;
+                                }
                             } catch (e) {
                                 // Fallback for raw text packets
                                 if (rawJson !== "[DONE]") {
                                     appendAgentMessage("Orchestrator", "", rawJson);
+                                    receivedResponse = true;
                                 }
                             }
                         }
@@ -220,13 +245,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            appendSystemLog("[SYSTEM] Live stream finished. Output fully synchronised.");
+            if (watchdogTimer) clearTimeout(watchdogTimer);
+
+            if (!receivedResponse) {
+                appendDangerLog("⚠️ [SYSTEM WARNING] Stream completed but no agent thoughts or responses were returned.");
+                appendSystemLog("This may indicate that the agent failed during tool execution or Vertex AI returned an empty completion. Please check the orchestrator service logs for details.");
+            } else {
+                appendSystemLog("[SYSTEM] Live stream finished. Output fully synchronised.");
+            }
 
         } catch (error) {
-            appendDangerLog(`❌ [CONNECTION ERROR] Live SSE fetch failed: ${error.message}`);
+            if (watchdogTimer) clearTimeout(watchdogTimer);
+            if (error.name === "AbortError") {
+                appendDangerLog("❌ [CONNECTION TIMEOUT] The stream was aborted due to inactivity. The remote agent or server is unresponsive.");
+            } else {
+                appendDangerLog(`❌ [CONNECTION ERROR] Live SSE fetch failed: ${error.message}`);
+            }
             appendSystemLog("Failing-closed or returning to local Sandbox Simulator. Check CORS policy and network links.");
             toggleConnectionMode(); // Fallback
         } finally {
+            if (watchdogTimer) clearTimeout(watchdogTimer);
             isSimulationRunning = false;
             chatInput.disabled = false;
             chatInput.placeholder = "Type instruction here (e.g. 'Summarize biomarkers')...";
@@ -239,17 +277,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.event === "agent_start" || data.agent_start) {
             const agentName = data.agent_name || data.agent || "Agent";
             appendSystemLog(`Agent [${agentName.toUpperCase()}] started execution...`);
+            return false;
         } else if (data.event === "agent_thought" || data.thought) {
             const agentName = data.agent_name || data.agent || "Agent";
             appendAgentMessage(agentName, data.thought || data.text || "", "");
+            return true;
         } else if (data.event === "agent_response" || data.message || data.output) {
             const agentName = data.agent_name || data.agent || "Agent";
             const responseText = data.message || data.output || data.text || "";
             appendAgentMessage(agentName, "", responseText);
+            return true;
         } else if (data.event === "tool_call" || data.tool_call) {
             const agentName = data.agent_name || data.agent || "Agent";
             const toolName = data.tool_name || data.tool || "tool_execution";
             appendSystemLog(`[Tool Call] ${agentName} invoked: <code>${toolName}</code>`);
+            return false;
         } else if (data.event === "sentinel_decision" || data.intercept) {
             // Display Sentinel's pre-flight decision
             const isAllowed = data.allowed || data.verdict === "ALLOW";
@@ -259,9 +301,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             appendInterceptLog(isAllowed, agentName, toolName, ruleName);
             addHUDDecisionRow(agentName, toolName, isAllowed ? "ALLOW" : "HALT");
-        } else if (data.event === "error" || data.error) {
-            appendDangerLog(`[PIPELINE ERROR] ${data.error}`);
+            return false;
+        } else if (data.event === "error" || data.error || data.exception || data.detail) {
+            const errMsg = data.error || data.detail || data.exception || "Unknown pipeline error";
+            appendDangerLog(`[PIPELINE ERROR] ${errMsg}`);
+            return true;
         }
+        return false;
     }
 
     // Process Slash Commands directly from the console
