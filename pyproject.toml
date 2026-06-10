@@ -48,6 +48,12 @@ package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+markers = [
+    "live_dt: requires DT_ENVIRONMENT and DT_PLATFORM_TOKEN; hits the live Dynatrace tenant",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:mcp",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
