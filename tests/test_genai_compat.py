@@ -52,9 +52,7 @@ class TestPatchedPublicConverter(unittest.TestCase):
         from a2a import types as a2a_types
         from google.adk.a2a.converters import part_converter
 
-        a2a_part = a2a_types.Part(
-            root=a2a_types.TextPart(text="hello", metadata={"k": "v"})
-        )
+        a2a_part = a2a_types.Part(root=a2a_types.TextPart(text="hello", metadata={"k": "v"}))
         result = part_converter.convert_a2a_part_to_genai_part(a2a_part)
         self.assertIsNotNone(result)
         self.assertIsNone(result.part_metadata)
@@ -62,8 +60,9 @@ class TestPatchedPublicConverter(unittest.TestCase):
         self.assertEqual(result.text, "hello")
 
     def test_patched_marker_is_set(self) -> None:
-        from core.genai_compat import _PATCH_FLAG  # noqa: PLC0415
         from google.adk.a2a.converters import part_converter
+
+        from core.genai_compat import _PATCH_FLAG  # noqa: PLC0415
 
         self.assertTrue(
             getattr(part_converter.convert_a2a_part_to_genai_part, _PATCH_FLAG, False),
@@ -143,20 +142,20 @@ class TestCapturedDefaultsRewritten(unittest.TestCase):
         copies inside each consumer module should also point at the patched
         wrapper, so any ``module.func`` lookup or ``part_converter or
         convert_a2a_part_to_genai_part`` fallback uses the strip."""
-        from core.genai_compat import _PATCH_FLAG  # noqa: PLC0415
         from google.adk.a2a.converters import (
             event_converter,
             long_running_functions,
             request_converter,
         )
 
+        from core.genai_compat import _PATCH_FLAG  # noqa: PLC0415
+
         for module in (request_converter, event_converter, long_running_functions):
             fn = getattr(module, "convert_a2a_part_to_genai_part", None)
             self.assertIsNotNone(fn, f"{module.__name__} lost its alias")
             self.assertTrue(
                 getattr(fn, _PATCH_FLAG, False),
-                f"{module.__name__}.convert_a2a_part_to_genai_part is not the "
-                "patched wrapper",
+                f"{module.__name__}.convert_a2a_part_to_genai_part is not the patched wrapper",
             )
 
 

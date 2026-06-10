@@ -116,16 +116,13 @@ def _rewrite_defaults_for(module, original, patched) -> int:
 
             defaults = getattr(target, "__defaults__", None)
             if defaults and original in defaults:
-                new_defaults = tuple(
-                    patched if d is original else d for d in defaults
-                )
+                new_defaults = tuple(patched if d is original else d for d in defaults)
                 try:
                     target.__defaults__ = new_defaults  # type: ignore[attr-defined]
                     rewritten += 1
                 except Exception as exc:
                     logger.warning(
-                        "genai_compat: could not rewrite defaults on "
-                        "%s.%s (depth=%d): %s",
+                        "genai_compat: could not rewrite defaults on %s.%s (depth=%d): %s",
                         module.__name__,
                         attr_name,
                         depth,
@@ -186,8 +183,7 @@ def install() -> None:
         total_defaults += _rewrite_defaults_for(consumer, original, patched)
 
     logger.info(
-        "genai_compat: part_metadata stripping installed "
-        "(rewrote %d ADK function default(s))",
+        "genai_compat: part_metadata stripping installed (rewrote %d ADK function default(s))",
         total_defaults,
     )
 
