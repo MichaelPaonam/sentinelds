@@ -78,7 +78,7 @@ def install() -> None:
         except Exception:
             pass
 
-    _gt.Part.__init__ = patched_init
+    _gt.Part.__init__ = patched_init # type: ignore[method-assign,assignment]
     setattr(_gt.Part, _PATCH_FLAG, True)
 
     logger.info("genai_compat: Part.__init__ patched to null part_metadata on Vertex")
