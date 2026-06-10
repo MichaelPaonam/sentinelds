@@ -13,7 +13,7 @@ import tempfile
 import time
 
 from core.config import settings
-from observability import init_tracing, current_span
+from observability import current_span, init_tracing
 
 
 def verify_gcs_access(bucket_name: str, prefix: str | None, test_write: bool) -> bool:
@@ -49,11 +49,16 @@ def verify_gcs_access(bucket_name: str, prefix: str | None, test_write: bool) ->
     # Perform test download if there are blobs
     if blobs:
         first_blob = blobs[0]
-        print(f"[spike_gcs_test] Testing download of first blob: gs://{bucket_name}/{first_blob.name}")
+        print(
+            f"[spike_gcs_test] Testing download of first blob: gs://{bucket_name}/{first_blob.name}"
+        )
         try:
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 first_blob.download_to_filename(tmp.name)
-                print(f"[spike_gcs_test] SUCCESS: Downloaded {first_blob.name} to temporary location {tmp.name}")
+                print(
+                    f"[spike_gcs_test] SUCCESS: Downloaded {first_blob.name} \
+                    to temporary location {tmp.name}"
+                )
             os.unlink(tmp.name)
         except Exception as exc:
             print(f"[spike_gcs_test] ERROR downloading blob: {exc}", file=sys.stderr)
@@ -80,7 +85,11 @@ def verify_gcs_access(bucket_name: str, prefix: str | None, test_write: bool) ->
                 os.unlink(tmp_name)
         except Exception as exc:
             print(f"[spike_gcs_test] ERROR writing/uploading test blob: {exc}", file=sys.stderr)
-            print("Hint: Check if your role has storage.objects.create or storage.objectUser permissions.", file=sys.stderr)
+            print(
+                "Hint: Check if your role has storage.objects.create \
+                or storage.objectUser permissions.",
+                file=sys.stderr,
+            )
             return False
 
     return True
@@ -98,7 +107,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.bucket:
-        print("[spike_gcs_test] ERROR: No bucket name provided via argument or config.", file=sys.stderr)
+        print(
+            "[spike_gcs_test] ERROR: No bucket name provided via argument or config.",
+            file=sys.stderr,
+        )
         print("Please specify a bucket name: --bucket <name>", file=sys.stderr)
         sys.exit(1)
 

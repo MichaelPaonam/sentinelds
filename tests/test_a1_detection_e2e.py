@@ -135,7 +135,10 @@ async def _run_test() -> None:
             "(documented in docs/agents-exploit-scenarios.md §A1.4)"
         )
 
-@pytest.mark.skip(reason="Takes too long to run as part of the regular suite; run manually when needed")
+
+@pytest.mark.skip(
+    reason="Takes too long to run as part of the regular suite; run manually when needed"
+)
 def test_a1_event_visible_via_mcp_within_60s() -> None:
     """Acceptance criteria 1 + 2 of #27, post-migration shape.
 

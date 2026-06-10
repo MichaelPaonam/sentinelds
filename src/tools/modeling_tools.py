@@ -42,13 +42,14 @@ def _resolve_local_path(csv_path: str) -> str:
     """Helper to resolve csv_path to a local filepath, downloading from GCS if needed."""
     if csv_path.startswith("gs://"):
         import tempfile
+
         from core.gcs import download_to_path
+
         tmp = tempfile.NamedTemporaryFile(suffix=".csv", delete=False)
         tmp.close()
         download_to_path(csv_path, tmp.name)
         return tmp.name
     return csv_path
-
 
 
 def handle_imbalance(
