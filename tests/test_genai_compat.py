@@ -59,9 +59,7 @@ class TestPartPatchOnVertex(unittest.TestCase):
             convert_a2a_part_to_genai_part,
         )
 
-        a2a_part = a2a_types.Part(
-            root=a2a_types.TextPart(text="hello", metadata={"a2a": "meta"})
-        )
+        a2a_part = a2a_types.Part(root=a2a_types.TextPart(text="hello", metadata={"a2a": "meta"}))
         genai_part = convert_a2a_part_to_genai_part(a2a_part)
         self.assertIsNotNone(genai_part)
         self.assertIsNone(genai_part.part_metadata)

@@ -17,12 +17,11 @@ instrument_genai()
 # google.adk.a2a module. The patch installs at Part.__init__, so strictly it
 # only needs to land before any Part is constructed — but importing it first
 # keeps the ordering obvious and matches the intent of the comment.
-from core import genai_compat  # noqa: E402,F401
-
 import uvicorn  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.modeling_agent.agent import modeling_agent  # noqa: E402
+from core import genai_compat  # noqa: E402,F401
 
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore", category=UserWarning)
