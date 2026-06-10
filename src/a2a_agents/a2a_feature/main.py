@@ -17,11 +17,11 @@ instrument_genai()
 # module. ADK callers capture `convert_a2a_part_to_genai_part` as a default arg
 # at function-definition time, so the patch must be in place before those caller
 # modules are imported (e.g. via `to_a2a`, `RemoteA2aAgent`).
-from core import genai_compat  # noqa: E402,F401
 import uvicorn  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.feature_agent.agent import feature_agent  # noqa: E402
+from core import genai_compat  # noqa: E402,F401
 
 logging.disable(level=logging.WARNING)
 warnings.filterwarnings("ignore", category=UserWarning)
