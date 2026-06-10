@@ -176,9 +176,12 @@ def install() -> None:
     for consumer in (_rc, _ec, _lrf):
         # Rebind the module-level alias so any ``module.func`` lookup or
         # ``part_converter or convert_a2a_part_to_genai_part`` fallback uses
-        # the patched version.
+        # the patched version. setattr keeps this invisible to static type
+        # checkers — these three modules each ``from .part_converter import
+        # convert_a2a_part_to_genai_part`` at the top, so the attribute does
+        # exist at runtime, but mypy can't see it across the module union.
         if getattr(consumer, "convert_a2a_part_to_genai_part", None) is original:
-            consumer.convert_a2a_part_to_genai_part = patched
+            setattr(consumer, "convert_a2a_part_to_genai_part", patched)
         # Rewrite captured function defaults.
         total_defaults += _rewrite_defaults_for(consumer, original, patched)
 
