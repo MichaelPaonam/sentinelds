@@ -40,7 +40,7 @@ export function Team() {
             <article key={member.name} class="card cyber-chamfer team__member">
               <h3 class="team__name">
                 {member.github ? (
-                  <a href={member.github} target="_blank" rel="noreferrer">
+                  <a href={member.github} target="_blank" rel="noreferrer noopener">
                     {member.name}
                   </a>
                 ) : (
@@ -71,7 +71,7 @@ export function Footer() {
         </p>
         <ul class="footer__links">
           <li>
-            <a href="https://github.com/MichaelPaonam/sentinelds" target="_blank" rel="noreferrer">
+            <a href="https://github.com/MichaelPaonam/sentinelds" target="_blank" rel="noreferrer noopener">
               GitHub
             </a>
           </li>

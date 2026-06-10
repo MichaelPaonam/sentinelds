@@ -97,7 +97,7 @@ When it finishes, the CLI prints your live URL, e.g.:
 - `https://sentinelds-28731.web.app`
 - `https://sentinelds-28731.firebaseapp.com`
 
-(Custom domains can be added under **Hosting → Add custom domain** in the Firebase console.)
+(Custom domains can be added under **Hosting → Add custom domain** in the Firebase Console.)
 
 ### Update after changes
 

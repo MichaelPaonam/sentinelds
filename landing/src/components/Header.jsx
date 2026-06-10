@@ -12,7 +12,7 @@ export function Header() {
   return (
     <header class="header">
       <div class="container header__inner">
-        <a href="#" class="header__logo">
+        <a href="#top" class="header__logo">
           SentinelDS
         </a>
         <nav aria-label="Main">
@@ -28,7 +28,7 @@ export function Header() {
           href={DEMO_URL}
           class="btn btn--default cyber-chamfer-sm"
           target="_blank"
-          rel="noreferrer"
+          rel="noreferrer noopener"
         >
           View Demo
         </a>

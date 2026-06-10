@@ -22,7 +22,7 @@ export function Hero() {
               href={DEMO_URL}
               class="btn btn--glitch cyber-chamfer-sm"
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
             >
               View Demo
             </a>
