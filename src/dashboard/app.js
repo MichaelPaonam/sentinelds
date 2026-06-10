@@ -53,9 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSimulationRunning = false;
     let simTimer = null;
 
-    // Chart Dimensions
-    const svgWidth = 800;
-    const svgHeight = 240;
+    // Chart Dimensions (dynamically read from the SVG element to avoid divergence)
+    const svgWidth = svgGraph && svgGraph.viewBox ? (svgGraph.viewBox.baseVal.width || 800) : 800;
+    const svgHeight = svgGraph && svgGraph.viewBox ? (svgGraph.viewBox.baseVal.height || 240) : 240;
     const padLeft = 60;
     const padRight = 30;
     const padTop = 35;
@@ -194,8 +194,13 @@ document.addEventListener('DOMContentLoaded', () => {
         drawStaticChart(s.driftChart);
 
         // 7. Update Drift Status Badge
-        if (s.driftChart.anomalyIndexStart !== undefined) {
-            badgeDriftStatus.textContent = currentScenario === 'A1' ? "[ HIGH EGRESS DETECTED ]" : "[ DATASET DRIFT ALARM ]";
+        updateDriftBadge(s.driftChart.anomalyIndexStart !== undefined);
+    }
+
+    // Update Drift Badge state helper to unify live and demo modes
+    function updateDriftBadge(isAnomalous, textOverride = null) {
+        if (isAnomalous) {
+            badgeDriftStatus.textContent = textOverride || (currentScenario === 'A1' ? "[ HIGH EGRESS DETECTED ]" : "[ DATASET DRIFT ALARM ]");
             badgeDriftStatus.className = "pane-badge badge-problem-active";
         } else {
             badgeDriftStatus.textContent = "[ STATS COMPLIANT ]";
@@ -230,13 +235,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         card.innerHTML = `
             <div class="syslog-meta">
-                <span>LOG_ID: ${p.id}</span>
-                <span>TIME_OFFSET: ${p.timeOffset}</span>
+                <span>LOG_ID: ${escapeHtml(p.id)}</span>
+                <span>TIME_OFFSET: ${escapeHtml(p.timeOffset)}</span>
             </div>
             <div class="syslog-title ${p.severity === 'severe' ? 'severe' : 'warning'}">
-                >>> [${p.severityText.toUpperCase()}] ${p.title.toUpperCase()}
+                >>> [${escapeHtml(p.severityText.toUpperCase())}] ${escapeHtml(p.title.toUpperCase())}
             </div>
-            <div class="syslog-desc">${p.desc}</div>
+            <div class="syslog-desc">${escapeHtml(p.desc)}</div>
         `;
         return card;
     }
@@ -271,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const verdictStr = pad(`[${d.verdict}]`, 7);
         
-        tr.innerHTML = `| <span class="td-timestamp">${time}</span> | <span>${proc}</span> | <span class="td-tool">${escapeHtml(tool)}</span> | <span class="td-policy">${policy}</span> | <span class="${verdictClass}">${verdictStr}</span> |`;
+        tr.innerHTML = `| <span class="td-timestamp">${escapeHtml(time)}</span> | <span>${escapeHtml(proc)}</span> | <span class="td-tool">${escapeHtml(tool)}</span> | <span class="td-policy">${escapeHtml(policy)}</span> | <span class="${verdictClass}">${escapeHtml(verdictStr)}</span> |`;
         return tr;
     }
 
@@ -506,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const baselineData = [...s.driftChart.baseline];
         const normalTelemetry = [...s.driftChart.telemetry];
-        const anomalyStartIdx = s.driftChart.anomalyIndexStart || 10;
+        const anomalyStartIdx = s.driftChart.anomalyIndexStart ?? 10;
         
         const stepTelemetry = normalTelemetry.map((v, i) => i < anomalyStartIdx ? v : baselineData[i] + (Math.random()*2 - 1.0));
         
@@ -519,8 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         drawStaticChart(mockChart);
-        badgeDriftStatus.textContent = "[ STATS COMPLIANT ]";
-        badgeDriftStatus.className = "pane-badge";
+        updateDriftBadge(false);
 
         // THEATRE TIMELINE SCHEDULE
         // Step 1: Normal logs flowing. Tool-rate normal.
@@ -534,8 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnPlaySim.textContent = '[ WARN: SEC INTEGRITY FAULT ]';
                 drawStaticChart(s.driftChart); // Re-draw full telemetry with spike & anomaly overlay
                 
-                badgeDriftStatus.textContent = currentScenario === 'A1' ? "[ HIGH EGRESS DETECTED ]" : "[ DATASET DRIFT ALARM ]";
-                badgeDriftStatus.className = "pane-badge badge-problem-active";
+                updateDriftBadge(true);
 
                 // Push Problem feed!
                 badgeProblemsCount.textContent = "[ 1 SECURITY PROBLEM ACTIVE ]";
@@ -663,6 +666,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         drawStaticChart(liveChartConfig);
 
+        // Update drift badge to reflect live-mode problems (aligned with demo behavior)
+        updateDriftBadge(liveProblems.length > 0);
+
         // 4. Decy / resolve existing live problems
         decayLiveProblems();
 
@@ -718,6 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (liveProblems.length === 0) {
                 // All problems resolved!
+                updateDriftBadge(false);
                 badgeProblemsCount.textContent = '[ SECURE BASELINE ]';
                 badgeProblemsCount.className = 'pane-badge';
                 listProblems.innerHTML = `
