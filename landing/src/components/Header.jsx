@@ -3,8 +3,8 @@ import { DEMO_URL } from "../constants.js";
 
 const LINKS = [
   { href: "#how-it-works", label: "How It Works" },
-  { href: "#attacks", label: "Attacks" },
-  { href: "#tech", label: "Tech Stack" },
+  { href: "#threats", label: "Threats" },
+  { href: "#tech", label: "Platform" },
   { href: "#team", label: "Team" },
 ];
 
@@ -30,7 +30,7 @@ export function Header() {
           target="_blank"
           rel="noreferrer noopener"
         >
-          View Demo
+          See It In Action
         </a>
       </div>
     </header>

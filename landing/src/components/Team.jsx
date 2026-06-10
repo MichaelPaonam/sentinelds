@@ -3,23 +3,20 @@ import "./Team.css";
 const TEAM = [
   {
     name: "Michael Paonam",
-    role: "Lead · Architecture",
-    bio: "Agent pipeline design, Dynatrace integration, hackathon strategy.",
-    email: "mazdaswift@gmail.com",
+    role: "Architecture & Platform",
+    bio: "Agentic systems, runtime security primitives, observability design.",
     github: "https://github.com/MichaelPaonam",
   },
   {
     name: "Ashiha Maheshkumar",
-    role: "Engineering · Attacks",
-    bio: "A1/A2 attack staging, Feature Agent pipeline, Cloud Run deployment.",
-    email: "ashihamaheshkumar@gmail.com",
+    role: "Threat Engineering",
+    bio: "Adversarial scenarios, data pipeline security, cloud deployment.",
     github: "https://github.com/ashihams",
   },
   {
     name: "Moris Takhellambam",
-    role: "Engineering · Agents",
-    bio: "Research Agent, Feature Agent tooling, ADK CLI integration, file-creation tools.",
-    email: "moris.takhel@gmail.com",
+    role: "Agent Engineering",
+    bio: "Agent runtime, tool integrations, ADK platform work.",
     github: "https://github.com/MorisTakhellambam",
   },
 ];
@@ -28,11 +25,12 @@ export function Team() {
   return (
     <section class="section" id="team">
       <div class="container">
-        <p class="section__label">Operators</p>
-        <h2 class="section__title">Team</h2>
+        <p class="section__label">Built By</p>
+        <h2 class="section__title">The Team</h2>
         <p class="section__lead">
-          SentinelDS — securing agentic data-science workflows for the Google Cloud
-          × Dynatrace hackathon.
+          Builders of the immune system for agentic AI. We work where
+          agents meet the real world — tools, data, untrusted inputs —
+          and make that boundary defensible.
         </p>
 
         <div class="team__grid">
@@ -48,11 +46,6 @@ export function Team() {
                 )}
               </h3>
               <p class="team__role">{member.role}</p>
-              {member.email && (
-                <a class="team__email" href={`mailto:${member.email}`}>
-                  {member.email}
-                </a>
-              )}
               <p class="team__bio">{member.bio}</p>
             </article>
           ))}
@@ -68,10 +61,18 @@ export function Footer() {
       <div class="container footer__inner">
         <p class="footer__copy">
           © 2026 SentinelDS · Emit → Detect → Decide → Enforce
+          <br />
+          <small>
+            Originally built at the Google Cloud Rapid Agent Hackathon, 2026.
+          </small>
         </p>
         <ul class="footer__links">
           <li>
-            <a href="https://github.com/MichaelPaonam/sentinelds" target="_blank" rel="noreferrer noopener">
+            <a
+              href="https://github.com/MichaelPaonam/sentinelds"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
               GitHub
             </a>
           </li>
