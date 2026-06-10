@@ -1,20 +1,24 @@
 """Seed A2 baseline ingest snapshots for drift detection (issue #31).
 
-Simulates five clean CSV ingests and one poisoned ingest using pandas only.
+Simulates five clean CSV ingests and one poisoned ingest via the instrumented
+pandas_profile tool so dataset.stats.* spans reach Dynatrace / Davis AI.
+CSVs are fetched from GCS using the bucket configured in settings.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-CLEAN_CSV = REPO_ROOT / "src/attack_server/data/clean.csv"
-POISONED_CSV = REPO_ROOT / "src/attack_server/data/poisoned.csv"
+from core.config import settings
+from core.gcs import download_to_path
+from tools.feature_tools import pandas_profile
+
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "baseline_snapshots"
 N_BASELINE_RUNS = 5
 
@@ -31,10 +35,10 @@ def _label_distribution(df: pd.DataFrame) -> dict[str, dict[str, float | int]]:
     }
 
 
-def _build_snapshot(df: pd.DataFrame, source_csv: Path) -> dict[str, Any]:
+def _build_snapshot(df: pd.DataFrame, source_uri: str) -> dict[str, Any]:
     numeric = df.select_dtypes(include="number")
     return {
-        "source_csv": str(source_csv.resolve()),
+        "source_csv": source_uri,
         "row_count": int(len(df)),
         "label_distribution": _label_distribution(df),
         "feature_mean": {col: float(numeric[col].mean()) for col in numeric.columns},
@@ -89,17 +93,32 @@ def _print_drift_comparison(
 
 
 def main() -> None:
-    if not CLEAN_CSV.exists():
-        raise FileNotFoundError(f"Clean CSV not found: {CLEAN_CSV}")
-    if not POISONED_CSV.exists():
-        raise FileNotFoundError(f"Poisoned CSV not found: {POISONED_CSV}")
+    if not settings.GCS_BUCKET_NAME:
+        raise RuntimeError(
+            "GCS_BUCKET_NAME is not set. "
+            "Export it or add it to .env before running seed_baseline."
+        )
 
-    clean_df = pd.read_csv(CLEAN_CSV)
+    clean_uri = f"gs://{settings.GCS_BUCKET_NAME}/{settings.A2_CLEAN_BLOB}"
+    poisoned_uri = f"gs://{settings.GCS_BUCKET_NAME}/{settings.A2_POISONED_BLOB}"
+
+    tmpdir = tempfile.mkdtemp(prefix="a2_seed_")
+    clean_local = os.path.join(tmpdir, "clean.csv")
+    poisoned_local = os.path.join(tmpdir, "poisoned.csv")
+
+    print(f"[seed] Downloading {clean_uri}")
+    download_to_path(clean_uri, clean_local)
+    print(f"[seed] Downloading {poisoned_uri}")
+    download_to_path(poisoned_uri, poisoned_local)
+
+    clean_df = pd.read_csv(clean_local)
     clean_snapshots: list[dict[str, Any]] = []
 
     for run_num in range(1, N_BASELINE_RUNS + 1):
         print(f"\n[seed] Simulating clean ingest run_{run_num}")
-        snapshot = _build_snapshot(clean_df, CLEAN_CSV)
+        # Route through pandas_profile so dataset.stats.* spans fire
+        pandas_profile(clean_local)
+        snapshot = _build_snapshot(clean_df, clean_uri)
         snapshot["run"] = run_num
         snapshot["ingest_type"] = "baseline_clean"
         _save_snapshot(snapshot, SNAPSHOT_DIR / f"run_{run_num}.json")
@@ -108,8 +127,10 @@ def main() -> None:
     _print_stability_summary(clean_snapshots)
 
     print("\n[seed] Simulating poisoned ingest")
-    poisoned_df = pd.read_csv(POISONED_CSV)
-    poisoned_snapshot = _build_snapshot(poisoned_df, POISONED_CSV)
+    poisoned_df = pd.read_csv(poisoned_local)
+    # Route through pandas_profile so the poisoned span fires
+    pandas_profile(poisoned_local)
+    poisoned_snapshot = _build_snapshot(poisoned_df, poisoned_uri)
     poisoned_snapshot["run"] = "poisoned"
     poisoned_snapshot["ingest_type"] = "poisoned"
     _save_snapshot(poisoned_snapshot, SNAPSHOT_DIR / "poisoned_run.json")
