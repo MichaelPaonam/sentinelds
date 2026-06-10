@@ -1,0 +1,107 @@
+.hero {
+  position: relative;
+  padding: 5rem 0 7rem;
+  overflow: hidden;
+}
+
+.hero__mesh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 15% 20%, rgba(0, 255, 136, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 70%, rgba(255, 0, 255, 0.08), transparent 35%),
+    radial-gradient(circle at 50% 100%, rgba(0, 212, 255, 0.06), transparent 45%);
+}
+
+.hero__layout {
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .hero__layout {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+}
+
+.hero__eyebrow {
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--accent-tertiary);
+  margin-bottom: 1.5rem;
+}
+
+.hero__title {
+  font-family: var(--font-heading);
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 1.5rem;
+}
+
+.hero__subtitle {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  color: var(--muted-foreground);
+  max-width: 36rem;
+  margin-bottom: 2rem;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.hero__hud {
+  display: none;
+  padding: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .hero__hud {
+    display: block;
+  }
+}
+
+.hero__hud-title {
+  font-family: var(--font-label);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+.hero__stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.hero__stat-row span:last-child {
+  color: var(--accent);
+}
+
+.hero__circuit {
+  margin-top: 1.5rem;
+  height: 80px;
+  opacity: 0.35;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent),
+    repeating-linear-gradient(
+      90deg,
+      var(--accent) 0,
+      var(--accent) 2px,
+      transparent 2px,
+      transparent 12px
+    );
+  background-size: 100% 2px, 100% 100%;
+  background-position: center, center;
+  background-repeat: no-repeat;
+}
