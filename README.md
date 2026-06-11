@@ -2,19 +2,19 @@
 
 > **Dynatrace as the AI agent immune system.** Every agent action is observed, anomalies become Problems, and a Sentinel Agent halts the next risky tool call before damage spreads.
 
-An agentic data-science workspace defended by Dynatrace, submitted to the [Google Cloud Rapid Agent Hackathon](https://rapid-agent.devpost.com) — partner: **Dynatrace** (via MCP). Submission deadline: **2026-06-11 12:00 PDT**.
+An agentic data-science workspace defended by Dynatrace, submitted to the [Google Cloud Rapid Agent Hackathon](https://rapid-agent.devpost.com), partner: **Dynatrace** (via MCP). Submission deadline: **2026-06-11 12:00 PDT**.
 
 ---
 
 ## What it is
 
-Three specialist agents collaborate on a real data-science mission — building a **machine learning** model (eg: drowsiness-detection) from raw data collected:
+Three specialist agents collaborate on a real data-science mission to build a **machine learning** model (eg: drowsiness-detection) from raw data collected:
 
-- **Research Agent** — surveys papers and blog posts; summarizes the problem space (literature survey, metrics, existing systems).
-- **Feature Engineering Agent** — pulls drowsiness datasets, profiles them, builds features (exploratory data analysis, statistical analysis).
-- **Modelling Agent** — selects models, runs hyperparameter tuning, reports metrics with a focus on KPIs (predictions).
+- **Research Agent**: surveys papers and blog posts; summarizes the problem space (literature survey, metrics, existing systems).
+- **Feature Engineering Agent**: pulls drowsiness datasets, profiles them, builds features (exploratory data analysis, statistical analysis).
+- **Modelling Agent**: selects models, runs hyperparameter tuning, reports metrics with a focus on KPIs (predictions).
 
-Every LLM call, tool call, and dataset I/O is wrapped in OpenTelemetry and shipped to **Dynatrace SaaS**. **Davis AI** baselines the workspace and raises Problems on anomalous behavior. A separate **Sentinel Agent** queries Dynatrace over the **MCP** before each risky tool call and decides **ALLOW / WARN / HALT** — a deterministic, fail-closed gate that catches what model-layer safety tuning cannot.
+Every LLM call, tool call, and dataset I/O is wrapped in OpenTelemetry and shipped to **Dynatrace SaaS**. **Davis AI** baselines the workspace and raises Problems on anomalous behavior. A separate **Sentinel Agent** queries Dynatrace over the **MCP** before each risky tool call and decides **ALLOW / WARN / HALT**, providing a deterministic, fail-closed gate that catches what model-layer safety tuning cannot.
 
 ## What we're demonstrating
 
@@ -22,8 +22,8 @@ Two attacks, end-to-end, with detection and Sentinel response:
 
 | Attack | Target | What it exploits | What stops it |
 |---|---|---|---|
-| **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
-| **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel `preflight()` queries MCP (`query-problems`, `execute-dql`) → HALT before training tool executes |
+| **A1: Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]`, which the agent chases because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
+| **A2: Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel `preflight()` queries MCP (`query-problems`, `execute-dql`) → HALT before training tool executes |
 
 Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`docs/ai-security-threat-modelling.md` section 5](docs/ai-security-threat-modelling.md#5-the-threat-catalog--demoed-vs-future) as future work.
 
@@ -31,30 +31,30 @@ Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource 
 
 Both attacks exploit the **agent architecture**, not the model:
 
-- **A1** works because the Research Agent is *instructed* to fetch web pages and enrich its findings with referenced supplementary and replication URLs. The attack payload contains no imperative directive — malicious URLs are embedded as normal research-apparatus fields (`supplementary_data_url`, `references[]`). The agent follows them because its own prompt tells it to chase cited sources. Confirmed working end-to-end against Gemini 2.5 Flash Lite.
-- **A2** never touches the LLM — the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
+- **A1** works because the Research Agent is *instructed* to fetch web pages and enrich its findings with referenced supplementary and replication URLs. The attack payload contains no imperative directive, as malicious URLs are embedded as normal research-apparatus fields (`supplementary_data_url`, `references[]`). The agent follows them because its own prompt tells it to chase cited sources. Confirmed working end-to-end against Gemini 2.5 Flash Lite.
+- **A2** never touches the LLM; the poisoned CSV flows through `csv_read` → `pandas_profile` → training. Model alignment is irrelevant; the attack is on the data pipeline.
 
-This is the **point**: model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow. SentinelDS defends at the architectural layer, where the actual exposure lives. This matches the SANS AISMM Stage 4 *Confused Deputy* framing — a legitimately permissioned, well-aligned agent manipulated through trusted inputs.
+This is the **point**: model-layer safety is necessary but insufficient for agentic systems. The attack surface is the agent's tools and data flow. SentinelDS defends at the architectural layer, where the actual exposure lives. This matches the SANS AISMM Stage 4 *Confused Deputy* framing, where a legitimately permissioned, well-aligned agent is manipulated through trusted inputs.
 
 ## The defense loop
 
 Both attacks share the same four-phase structure, but the detection and decision paths differ:
 
-### A1 — Indirect prompt injection (local-first)
+### A1: Indirect prompt injection (local-first)
 
 ```mermaid
 flowchart LR
     E["<b>1. EMIT</b>\nOTel span on fetch_url\ncall + content hash"]
     D["<b>2. DETECT</b>\nLocal injection detector\nscans fetched content;\ncustom event POSTed to Dynatrace"]
-    De["<b>3. DECIDE</b>\nSentinel.notify() flips\nSentinelSession.compromised=True\nlocally — O(1), no MCP wait\n(MCP queried best-effort after)"]
+    De["<b>3. DECIDE</b>\nSentinel.notify() flips\nSentinelSession.compromised=True\nlocally, taking O(1) time without MCP wait\n(MCP queried best-effort after)"]
     En["<b>4. ENFORCE</b>\n@sentinel_gate raises PermissionError\nbefore next fetch_url executes"]
 
     E --> D --> De --> En
 ```
 
-The halt decision is **local and immediate** — `@sentinel_gate` reads a flag set by the injection detector. Davis AI and MCP are not in the critical path; they provide dashboard signal after the fact.
+The halt decision is **local and immediate** as `@sentinel_gate` reads a flag set by the injection detector. Davis AI and MCP are not in the critical path; they provide dashboard signal after the fact.
 
-### A2 — Data poisoning (MCP-backed)
+### A2: Data poisoning (MCP-backed)
 
 ```mermaid
 flowchart LR
@@ -66,23 +66,23 @@ flowchart LR
     E --> D --> De --> En
 ```
 
-Davis AI and MCP **are** in the critical path here — there is no local detector for CSV drift. The Sentinel queries Dynatrace Problems before allowing the training tool to run.
+Davis AI and MCP **are** in the critical path here because there is no local detector for CSV drift. The Sentinel queries Dynatrace Problems before allowing the training tool to run.
 
 ### Why two paths?
 
-| | A1 — Prompt injection | A2 — Data poisoning |
+| | A1: Prompt injection | A2: Data poisoning |
 |---|---|---|
 | Detector | Local regex (injection_detector) | Davis AI (metric drift) |
 | Decision latency | O(1) local flag | MCP round-trip |
 | MCP role | Best-effort enrichment | Required gate |
-| Fails closed if MCP down? | Yes — local flag is already set | Yes — `is_risky("train") → HALT` |
+| Fails closed if MCP down? | Yes, local flag is already set | Yes, `is_risky("train") → HALT` |
 
 ## Maturity claim
 
-SentinelDS demonstrates **SANS AISMM Stage 3 → 4 capabilities** for the workspace it observes:
+SentinelDS demonstrates **SANS AISMM Stage 3-4 capabilities** for the workspace it observes:
 
-- **Stage 3 fully present** — AI inventory (three named agents), structured trace IDs across agent steps and tool calls, prompt-injection defenses, ATLAS-mapped controls (AML.T0051, AML.T0020), input validation
-- **Stage 4 partially present** — execution guardrails on agent API calls, Confused Deputy defense, MLSecOps training-data validation, controls for cascading failures (quarantine stops propagation)
+- **Stage 3 fully present**: AI inventory (three named agents), structured trace IDs across agent steps and tool calls, prompt-injection defenses, ATLAS-mapped controls (AML.T0051, AML.T0020), input validation
+- **Stage 4 partially present**: execution guardrails on agent API calls, Confused Deputy defense, MLSecOps training-data validation, controls for cascading failures (quarantine stops propagation)
 
 Out of scope for the hackathon: governance artifacts (AI Governance Council, NHI lifecycle, board-level risk reporting), full red-teaming program, quantitative risk methodology. See [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) for the complete maturity-stage mapping.
 
@@ -92,7 +92,7 @@ Out of scope for the hackathon: governance artifacts (AI Governance Council, NHI
 
 ![SentinelDS architecture](./docs/architecture.svg)
 
-For the engineering reference view — framework names, tool lists per agent, and the OTLP / MCP feedback loop labelled — see [`docs/architecture-detailed.png`](docs/architecture-detailed.png). Full span-attribute schemas and trust boundaries are in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
+For the engineering reference view with framework names, tool lists per agent, and the OTLP / MCP feedback loop labelled, see [`docs/architecture-detailed.png`](docs/architecture-detailed.png). Full span-attribute schemas and trust boundaries are in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6-7.
 
 ---
 
@@ -190,7 +190,7 @@ GOOGLE_CLOUD_LOCATION="europe-west4"        # matches deploy script default
 DYNATRACE_API_URL="https://<your-environment-id>.live.dynatrace.com"
 DYNATRACE_API_TOKEN="<your-dynatrace-api-token>"
 
-# Dynatrace Platform API — used by the Sentinel Agent's MCP client
+# Dynatrace Platform API, used by the Sentinel Agent's MCP client
 # (separate from OTLP ingest; token scopes: mcp-gateway:servers:invoke,
 # mcp-gateway:servers:read, storage:buckets:read, storage:events:read, storage:logs:read)
 DT_ENVIRONMENT="https://<your-environment-id>.apps.dynatrace.com"
@@ -200,8 +200,8 @@ DT_PLATFORM_TOKEN="<your-dynatrace-platform-token>"
 `gcloud` must be authenticated to the same project. Vertex AI / Gemini APIs must be enabled.
 
 > **Two separate Dynatrace tokens are required:**
-> - `DYNATRACE_API_TOKEN` — classical API token for OTLP ingest (traces/metrics/logs)
-> - `DT_PLATFORM_TOKEN` — Platform API token used by the Sentinel Agent to query the **Remote** Dynatrace MCP Server (`query-problems`, `execute-dql`)
+> - `DYNATRACE_API_TOKEN`: classical API token for OTLP ingest (traces/metrics/logs)
+> - `DT_PLATFORM_TOKEN`: Platform API token used by the Sentinel Agent to query the **Remote** Dynatrace MCP Server (`query-problems`, `execute-dql`)
 
 ### Verify Dynatrace OTLP plumbing
 
@@ -218,10 +218,10 @@ PYTHONPATH=src uv run python -m smoke.observer_smoke          # observer pattern
 The attack server must be running before the e2e pipeline (it serves the A1 malicious paper payload):
 
 ```bash
-# Terminal 1 — start the fake paper API (A1 attack server, port 8001)
+# Terminal 1: start the fake paper API (A1 attack server, port 8001)
 uvicorn attack_server.server:app --port 8001 --app-dir src
 
-# Terminal 2 — run the full pipeline (research → features → modeling)
+# Terminal 2: run the full pipeline (research → features → modeling)
 PYTHONPATH=src uv run python -m e2e.run_demo
 
 # Override defaults via env vars:
@@ -284,16 +284,16 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 
 | Phase | Epic | Closes | Status |
 |---|---|---|---|
-| Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete ✓ |
-| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | Complete ✓ (A1 & A2 confirmed) |
-| Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Complete ✓ |
+| Phase 1: Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete ✓ |
+| Phase 2: Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | Complete ✓ (A1 & A2 confirmed) |
+| Phase 3: Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Complete ✓ |
 
 ---
 
 ## Hackathon compliance
 
 - **Powered by Gemini** ✓ (`google-genai` + `google-adk`)
-- **Built within Google Cloud Agent Builder ecosystem** ✓ (ADK as primary orchestrator — LangChain / LangGraph / LlamaIndex are explicitly disallowed by the rules)
+- **Built within Google Cloud Agent Builder ecosystem** ✓ (ADK as primary orchestrator, as LangChain / LangGraph / LlamaIndex are explicitly disallowed by the rules)
 - **Integrates a partner MCP server** ✓ (Dynatrace MCP)
 - **Track:** Dynatrace (single-track submission)
 - **AI coding tools used during development:** Google AntiGravity only (Claude / Cursor / Copilot are not permitted per hackathon rules)
@@ -304,13 +304,13 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 
 The threat-modelling and detection design draws on:
 
-- **SANS AI Security Maturity Model™** (Chris Cochran, SANS Institute) — pillar/stage framing
-- **RAI-AgentSec** — agent-shaped compliance checks (HITL, MCP Hub, tracing, audit logs)
-- **OWASP Top 10 for LLM Applications (2025)** — LLM01 (prompt injection), LLM03 (training data poisoning)
-- **MITRE ATLAS™** — AML.T0051 (Indirect Prompt Injection), AML.T0020 (Poison Training Data)
-- **Simon Willison** — practical writeups on indirect prompt injection
-- **[google/adk-samples](https://github.com/google/adk-samples)** — ADK sub-agent patterns referenced during implementation of the Research, Feature Engineering, and Modelling agents
-- [**Drowsiness Dectection**](https://github.com/MichaelPaonam/drowsiness-detection) - machine learning model build by the team
+- **SANS AI Security Maturity Model™** (Chris Cochran, SANS Institute), focusing on pillar/stage framing
+- **RAI-AgentSec**: agent-shaped compliance checks (HITL, MCP Hub, tracing, audit logs)
+- **OWASP Top 10 for LLM Applications (2025)**: LLM01 (prompt injection), LLM03 (training data poisoning)
+- **MITRE ATLAS™**: AML.T0051 (Indirect Prompt Injection), AML.T0020 (Poison Training Data)
+- **Simon Willison**: practical writeups on indirect prompt injection
+- **[google/adk-samples](https://github.com/google/adk-samples)**: ADK sub-agent patterns referenced during implementation of the Research, Feature Engineering, and Modelling agents
+- [**Drowsiness Dectection**](https://github.com/MichaelPaonam/drowsiness-detection) - machine learning model built by the team
 
 Detailed citations in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md).
 
@@ -318,4 +318,4 @@ Detailed citations in [`docs/ai-security-threat-modelling.md`](docs/ai-security-
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
