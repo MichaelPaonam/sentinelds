@@ -25,7 +25,7 @@ Two attacks, end-to-end, with detection and Sentinel response:
 | **A1 — Indirect prompt injection** | Research Agent (`lit_fetcher`) | Trusted paper source embeds malicious callback URLs as `supplementary_data_url` and `references[]` — agent chases them because its own prompt instructs enrichment via cited sources | Local injection detector fires → `SentinelSession.compromised = True` → `@sentinel_gate` raises `PermissionError` on the next `fetch_url` call |
 | **A2 — Data poisoning** | Feature Engineering Agent (CSV ingest) | Poisoned CSV (label flips + trigger pattern) reaches training | `dataset.stats.*` drift metrics → Davis Problem → Sentinel `preflight()` queries MCP (`query-problems`, `execute-dql`) → HALT before training tool executes |
 
-Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`PLAN.md` section 9](PLAN.md) as future work.
+Five additional threats (tool/MCP abuse, model supply-chain poisoning, resource abuse, secret exfiltration, recursive agent loops) are catalogued in [`docs/ai-security-threat-modelling.md` section 5](docs/ai-security-threat-modelling.md#5-the-threat-catalog--demoed-vs-future) as future work.
 
 ### Why the attacks succeed against a hardened Gemini
 
@@ -101,7 +101,9 @@ For the engineering reference view — framework names, tool lists per agent, an
 ```
 sentinelds/
 ├── README.md                                  ← this file
-├── PLAN.md                                    ← technical plan, schedule, milestones
+├── GEMINI.md                                  ← architectural blueprint & security reference guide
+├── AGENTS.md                                  ← repository guidelines & Karpathy coding principles
+├── DESIGN.md                                  ← retro-brutalist dashboard design specifications
 ├── docs/
 │   ├── ai-security-threat-modelling.md        ← AISMM pillars, MITRE ATLAS, defense loop
 │   ├── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
@@ -117,11 +119,14 @@ sentinelds/
 │   ├── a2a_agents/
 │   │   ├── a2a_research/                      ← research agent packaged as A2A service (Dockerfile)
 │   │   ├── a2a_feature/                       ← feature agent packaged as A2A service (Dockerfile)
-│   │   └── a2a_modeling/                      ← modeling agent packaged as A2A service (Dockerfile)
+│   │   ├── a2a_modeling/                      ← modeling agent packaged as A2A service (Dockerfile)
+│   │   └── a2a_orchestrator/                  ← Docker-packaged multi-agent orchestrator service
 │   ├── attack_server/
 │   │   └── server.py                          ← fake paper API with subtle A1 payload (v4)
 │   ├── core/
 │   │   └── config.py                          ← Pydantic Settings (env vars, model names, e2e defaults)
+│   ├── dashboard/                             ← retro-brutalist Terminal CLI dashboard (HTML/CSS/JS)
+│   ├── data/                                  ← thread-safe dataset quarantine store (quarantine.json)
 │   ├── e2e/
 │   │   └── run_demo.py                        ← end-to-end pipeline runner CLI
 │   ├── observability/
@@ -132,12 +137,14 @@ sentinelds/
 │   │   ├── preflight.py                       ← SentinelSession, Sentinel.notify(), sentinel_gate, ALLOW/WARN/HALT engine
 │   │   ├── session.py                         ← ContextVar-backed session (set/get/clear_sentinel_session)
 │   │   └── dynatrace_mcp.py                   ← Dynatrace Remote MCP client (list_open_problems, run_dql)
+│   ├── sentinel_service/                      ← secure Sentinel subprocess server (Dockerfile)
 │   ├── smoke/                                 ← OTel + observer pattern smoke tests
 │   └── tools/                                 ← fetch_url (@sentinel_gate wired), feature_tools, modeling_tools, …
-├── data/ecg_csv/                              ← raw EEG/ECG drowsiness CSVs (gitignored)
+├── data/                                      ← raw datasets & workspace output files (gitignored)
 ├── tests/                                     ← pytest unit + integration tests (test_sentinel_session, test_observer_flow, …)
-├── pyproject.toml                             ← Python deps (Python 3.12+, uv-managed)
-└── .env.example                               ← required env vars
+├── pyproject.toml                             ← Python dependencies (Python 3.12+, uv-managed)
+├── uv.lock                                    ← strict dependency lockfile
+└── .env.example                               ← required environment variables template
 ```
 
 ---
@@ -267,15 +274,7 @@ Then, open your browser to **[http://localhost:8080](http://localhost:8080)**. U
 
 ## Deployment
 
-The three A2A agents (`a2a_research`, `a2a_feature`, `a2a_modeling`) are each packaged as Docker containers under `src/a2a_agents/`.
-
-### Cloud Run (current approach)
-
-We deploy on **Google Cloud Run** with **Secret Manager** enabled. Each service is built and pushed to Artifact Registry, then deployed with secrets mounted as environment variables via `--set-secrets`. See the `deploy_a2a_*.sh` scripts at the repo root for the exact `gcloud run deploy` invocations.
-
-### Agent Runtime (not used)
-
-We attempted deployment on **Vertex AI Agent Runtime** but could not get it working — every deploy attempt threw an error indicating `AdkApp` was not detected on the Vertex AI endpoint. This appears to be a packaging/entry-point detection issue specific to how ADK registers the app with the runtime. Switching to Cloud Run unblocked us and is now the canonical deployment path.
+The three A2A agents (`a2a_research`, `a2a_feature`, `a2a_modeling`) and the orchestrator are packaged as Docker containers under `src/a2a_agents/` and deployed to **Google Cloud Run** with **Secret Manager** integration.
 
 ---
 
@@ -285,11 +284,9 @@ Execution is tracked on the [GitHub project board](https://github.com/users/Mich
 
 | Phase | Epic | Closes | Status |
 |---|---|---|---|
-| Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete |
-| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | A1 confirmed ✓ · Observer pattern (detect→flag→halt) ✓ · A2 pending |
-| Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Pending |
-
-**Slip rules** (per `PLAN.md` section 7): if M1 slips, demo A1 only; if M2 slips, skip dashboard polish; **never compromise on M3** — a working video with rougher code outperforms a polished repo without one.
+| Phase 1 — Foundation | [#17](https://github.com/MichaelPaonam/sentinelds/issues/17) | M1 (observable happy path) | Complete ✓ |
+| Phase 2 — Attack & Defense | [#18](https://github.com/MichaelPaonam/sentinelds/issues/18) | M2 (A1 + A2 demoed end-to-end) | Complete ✓ (A1 & A2 confirmed) |
+| Phase 3 — Polish & Submit | [#19](https://github.com/MichaelPaonam/sentinelds/issues/19) | M3 (video) → Submission | Complete ✓ |
 
 ---
 

@@ -4,7 +4,7 @@
 `sentinelds` is currently a planning-stage repository. The active top-level files are:
 
 - `README.md` for the project summary, demo scope, and milestones.
-- `PLAN.md` for the architecture, threat model, prerequisites, and delivery schedule.
+- `GEMINI.md` for the architecture, threat model, prerequisites, and security loop reference guide.
 - `DESIGN.md` for the dashboard and front-end retro-brutalist Terminal CLI design specifications.
 - `LICENSE` and `.gitignore` for repo policy and local artifact exclusions.
 
@@ -43,9 +43,9 @@ Always run Python tools via the local virtual environment. Never invoke raw or g
 ### Git Workspace Checks
 - `git status` to verify a clean working tree before and after changes.
 - `Get-Content README.md` (Windows) or `cat README.md` (POSIX) to review the current repo contract.
-- `Get-Content PLAN.md` (Windows) or `cat PLAN.md` (POSIX) to confirm architecture and milestone assumptions.
+- `Get-Content GEMINI.md` (Windows) or `cat GEMINI.md` (POSIX) to confirm architecture and security assumptions.
 
-Planned local tooling in `PLAN.md` is Python 3.11+, `uv` or `poetry`, Node.js 20+, `gcloud`, and Docker. Align new automation with that stack instead of introducing parallel tooling.
+Planned local tooling in `GEMINI.md` is Python 3.11+, `uv` or `poetry`, Node.js 20+, `gcloud`, and Docker. Align new automation with that stack instead of introducing parallel tooling.
 
 ## Coding Style & Naming Conventions
 Prefer Python-first conventions because the planned runtime is ADK + data-science tooling. Use 4-space indentation, `snake_case` for modules and functions, `PascalCase` for classes, and short, descriptive file names. Keep agent boundaries explicit in names such as `research_agent.py` or `sentinel_policy.py`. Favor small modules over monolithic notebooks or scripts.
@@ -60,4 +60,4 @@ Add tests alongside new code rather than deferring them. Use `tests/` with file 
 All git commits must be handled and executed exclusively by the user; agents must stage files but never execute `git commit` or push commands directly. Recent history uses short, imperative messages such as `Update README repo layout` and `updated PLAN.md`. Keep commits focused and readable; mention the file or subsystem when useful. PRs should include a concise summary, linked issue or milestone, test evidence, and screenshots or trace captures for dashboard, telemetry, or demo-flow changes. Always refer to `.github/pull_request_template.md` when creating a pull request.
 
 ## Security & Configuration Tips
-Do not commit `.env` files, service-account keys, OTLP tokens, MCP credentials, datasets, or model artifacts. Follow `.gitignore` for local outputs, and keep any security-sensitive demo setup documented in `PLAN.md` or `README.md` rather than hardcoded in source.
+Do not commit `.env` files, service-account keys, OTLP tokens, MCP credentials, datasets, or model artifacts. Follow `.gitignore` for local outputs, and keep any security-sensitive demo setup documented in `GEMINI.md` or `README.md` rather than hardcoded in source.

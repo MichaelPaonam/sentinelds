@@ -10,7 +10,7 @@ The hackathon demo is deliberately narrow (two attacks, see [`agents-exploit-sce
 > **Sources:**
 > - SANS AI Security Maturity Model™ (Chris Cochran, SANS Institute)
 > - RAI-AgentSec — Responsible AI security/compliance toolkit for agent projects
-> - `PLAN.md` section 2 (threat model), section 3 (architecture), section 9 (full threat list)
+> - `GEMINI.md` section 2 (architecture), section 4 (threat walkthroughs)
 
 ---
 
@@ -22,7 +22,7 @@ The AISMM organizes AI security around three pillars. SentinelDS's design touche
 |--------|--------------------|---------------------------|
 | **Protect** | How are we securing AI implementations against adversarial attacks, data poisoning, prompt injection, model theft? | Every agent tool call is wrapped in an OTel span and gated by the Sentinel Agent's pre-flight check (ALLOW/WARN/HALT). The two demoed attacks (A1 prompt injection, A2 data poisoning) are blocked end-to-end. |
 | **Utilize** | How are we using AI to detect threats and automate response? | Dynatrace Davis AI auto-baselines workspace telemetry and raises problems on anomalous behavior (unseen egress hosts, dataset stat drift, injection signatures). Sentinel queries Davis over MCP rather than re-implementing detection. |
-| **Govern** | How are we managing AI-specific risks and ensuring responsible use? | Out of hackathon scope. The submission write-up acknowledges this gap and lists it as future work alongside the five non-demoed threats from `PLAN.md` section 9. |
+| **Govern** | How are we managing AI-specific risks and ensuring responsible use? | Out of hackathon scope. The submission write-up acknowledges this gap and lists it as future work alongside the five non-demoed threats from section 5 below. |
 
 The pillars are not independent. Without **Govern**, **Utilize** becomes uncontrolled experimentation and **Protect** lacks policy authority. SentinelDS's Sentinel-Agent decisions (HALT vs WARN vs ALLOW) are policy enforcement; in a real deployment that policy would live under a Govern function (AI Governance Council, documented agent owners, NHI lifecycle). The hackathon demo collapses this into hardcoded rules — sufficient to show the mechanism, insufficient as a production posture.
 
@@ -107,7 +107,7 @@ RAI-AgentSec defines six agent-shaped checks that map directly onto SentinelDS a
 
 ## 5. The Threat Catalog — Demoed vs. Future
 
-SentinelDS demos two threats end-to-end. Five additional threats are listed in `PLAN.md` section 9 as future work. Mapping each to AISMM pillars and ATLAS techniques:
+SentinelDS demos two threats end-to-end. Five additional threats are listed below as future work. Mapping each to AISMM pillars and ATLAS techniques:
 
 | # | Threat | Target agent | Pillar | ATLAS technique (closest) | Demo? |
 |---|--------|--------------|--------|---------------------------|-------|
@@ -119,7 +119,7 @@ SentinelDS demos two threats end-to-end. Five additional threats are listed in `
 | 6 | Secret exfiltration (env vars, credentials) | Any | Protect | AML.T0024.001 — Infer Training Data Membership / data exfil | Future |
 | 7 | Recursive agent loops — DoS via runaway agent-to-agent calls | Orchestrator | Protect | AML.T0029 — Denial of ML Service | Future |
 
-**Why these two for the demo** (per `PLAN.md` section 2):
+**Why these two for the demo** (per `GEMINI.md` section 4):
 - A1 is the #1 real-world agent threat in 2026 and is visually compelling
 - A2 is the classic ML attack and exercises a different defense path (statistical drift, not behavioral)
 - Together they show *behavioral* detection (A1) and *data-shaped* detection (A2), proving the architecture generalizes

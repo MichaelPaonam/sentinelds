@@ -72,7 +72,7 @@ The decision belongs to issue [#23 — Dynatrace MCP client wired to Sentinel Ag
 - **Auth.** Platform OAuth / Platform Token with `automation:workflows:read|write|run` (`admin` for full management).
 - **Tools / capabilities.** Event/schedule/manual triggers, conditional logic, retries, loops, parallel branches, Slack/email/Jira/ServiceNow/cloud connectors, run-JavaScript step, full audit trail.
 - **Pros.** Native to Dynatrace, no extra infra. First-class Davis-problem and security-problem triggers. Built-in audit trail. Good as the **post-HALT reaction layer** (page on-call, open ticket, freeze workspace).
-- **Cons.** Async by design — not built to return ALLOW/WARN/HALT to a blocking caller in <1 s. No documented sync REST endpoint. Adds a second policy surface (Workflows DSL) on top of Sentinel's Python policy — risks scope creep against `PLAN.md` section 4. "Agentic" framing in marketing refers to Dynatrace's own built-in agents, not a host for external Python agents.
+- **Cons.** Async by design — not built to return ALLOW/WARN/HALT to a blocking caller in <1 s. No documented sync REST endpoint. Adds a second policy surface (Workflows DSL) on top of Sentinel's Python policy — risks scope creep against `GEMINI.md` section 4 non-goals. "Agentic" framing in marketing refers to Dynatrace's own built-in agents, not a host for external Python agents.
 - **GA status.** GA on the Dynatrace Platform (Grail/AppEngine generation). Not preview. Consumption-priced; workflow executions and any DQL inside them count against Grail budget.
 - **Sources.**
   - [docs.dynatrace.com/docs/shortlink/workflows](https://docs.dynatrace.com/docs/shortlink/workflows)
