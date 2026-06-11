@@ -1,0 +1,30 @@
+{
+  "feature_mean": {
+    "eye_aspect_ratio": 0.28940823337835087,
+    "head_pose_pitch": 0.34290591997570147,
+    "head_pose_yaw": -0.2754241859309116,
+    "label": 0.3296969696969697,
+    "yawn_count": 3.76
+  },
+  "feature_std": {
+    "eye_aspect_ratio": 0.10114065697234416,
+    "head_pose_pitch": 7.943195125815989,
+    "head_pose_yaw": 11.585200320505441,
+    "label": 0.47038822047762535,
+    "yawn_count": 2.9875307204822583
+  },
+  "ingest_type": "poisoned",
+  "label_distribution": {
+    "0": {
+      "count": 553,
+      "proportion": 0.6703030303030303
+    },
+    "1": {
+      "count": 272,
+      "proportion": 0.3296969696969697
+    }
+  },
+  "row_count": 825,
+  "run": "poisoned",
+  "source_csv": "gs://sentinelds-data-buckets/data/a2/poisoned.csv"
+}

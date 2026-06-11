@@ -1,0 +1,30 @@
+{
+  "feature_mean": {
+    "eye_aspect_ratio": 0.29376474067142433,
+    "head_pose_pitch": 0.3536217299749421,
+    "head_pose_yaw": -0.2840311917412527,
+    "label": 0.4,
+    "yawn_count": 3.65875
+  },
+  "feature_std": {
+    "eye_aspect_ratio": 0.09961127614019048,
+    "head_pose_pitch": 8.066270565060188,
+    "head_pose_yaw": 11.764945611164165,
+    "label": 0.4902044221234002,
+    "yawn_count": 2.977562894127613
+  },
+  "ingest_type": "baseline_clean",
+  "label_distribution": {
+    "0": {
+      "count": 480,
+      "proportion": 0.6
+    },
+    "1": {
+      "count": 320,
+      "proportion": 0.4
+    }
+  },
+  "row_count": 800,
+  "run": 2,
+  "source_csv": "gs://sentinelds-data-buckets/data/a2/clean.csv"
+}

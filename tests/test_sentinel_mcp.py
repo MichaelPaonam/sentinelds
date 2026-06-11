@@ -18,22 +18,40 @@ from mcp.types import CallToolResult, ImageContent, TextContent
 from sentinel.dynatrace_mcp import (
     DynatraceMCPConfig,
     _parse_text_content,
-    _server_params,
     list_open_problems,
     run_dql,
 )
 
+# Removed: _server_params no longer exists post remote-MCP migration
+
 
 def _text_result(payload: dict | list, is_error: bool = False) -> CallToolResult:
-    """Build a CallToolResult that mirrors what the Dynatrace MCP server returns."""
+    """Build a single-block CallToolResult (local server / fixture shape)."""
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(payload))],
         isError=is_error,
     )
 
 
+def _remote_result(records: list, is_error: bool = False) -> CallToolResult:
+    """Build a 3-block CallToolResult matching the remote server shape.
+
+    Confirmed during the migration spike (2026-06-09): both query-problems
+    and execute-dql return metadata / types / records as three TextContent
+    blocks.
+    """
+    return CallToolResult(
+        content=[
+            TextContent(type="text", text='Query metadata:\n{"grail": {}}'),
+            TextContent(type="text", text="Grail types for the records in the query result:\n[]"),
+            TextContent(type="text", text=f"Query result records:\n{json.dumps(records)}"),
+        ],
+        isError=is_error,
+    )
+
+
 class TestDynatraceMCPConfig(unittest.TestCase):
-    """``DynatraceMCPConfig.from_env`` and subprocess env wiring."""
+    """``DynatraceMCPConfig.from_env`` and remote URL construction."""
 
     @patch.dict(
         os.environ,
@@ -44,51 +62,50 @@ class TestDynatraceMCPConfig(unittest.TestCase):
         cfg = DynatraceMCPConfig.from_env()
         self.assertEqual(cfg.environment, "https://abc.apps.dynatrace.com")
         self.assertEqual(cfg.platform_token, "tok")
-        # Defaults the spike chose for the hackathon tenant.
-        self.assertTrue(cfg.disable_telemetry)
-        self.assertEqual(cfg.grail_budget_gb, 50)
 
     def test_from_env_missing_var_raises_with_doc_pointer(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(KeyError) as ctx:
                 DynatraceMCPConfig.from_env()
-        # The error must point the user at the docs and .env.example
-        # so the failure is self-explanatory in a Cloud Run log.
         self.assertIn("docs/dynatrace-mcp-options.md", str(ctx.exception))
         self.assertIn(".env.example", str(ctx.exception))
 
-    def test_server_params_only_forwards_dynatrace_vars(self) -> None:
+    def test_remote_url_construction(self) -> None:
         cfg = DynatraceMCPConfig(
-            environment="https://abc.apps.dynatrace.com",
-            platform_token="tok",
-            server_version="1.8.6",
+            environment="https://abc12345.apps.dynatrace.com",
+            platform_token="secret",
         )
-        params = _server_params(cfg)
-        self.assertEqual(params.command, "npx")
         self.assertEqual(
-            params.args,
-            ["-y", "@dynatrace-oss/dynatrace-mcp-server@1.8.6"],
+            cfg.remote_url,
+            "https://abc12345.apps.dynatrace.com/platform-reserved/mcp-gateway/v0.1/servers/dynatrace-mcp/mcp",
         )
-        # Subprocess env is locked to four keys — no inherited credentials.
-        self.assertEqual(
-            set(params.env or {}),
-            {
-                "DT_ENVIRONMENT",
-                "DT_PLATFORM_TOKEN",
-                "DT_MCP_DISABLE_TELEMETRY",
-                "DT_GRAIL_QUERY_BUDGET_GB",
-            },
+
+    def test_remote_url_strips_trailing_slash(self) -> None:
+        cfg = DynatraceMCPConfig(
+            environment="https://abc12345.apps.dynatrace.com/",
+            platform_token="secret",
         )
-        self.assertEqual(params.env["DT_MCP_DISABLE_TELEMETRY"], "true")
-        self.assertEqual(params.env["DT_GRAIL_QUERY_BUDGET_GB"], "50")
+        self.assertTrue(
+            cfg.remote_url.startswith("https://abc12345.apps.dynatrace.com/platform-reserved")
+        )
+        self.assertNotIn("//platform-reserved", cfg.remote_url)
 
 
 class TestParseTextContent(unittest.TestCase):
-    """``_parse_text_content`` enforces the Dynatrace MCP single-TextContent contract."""
+    """``_parse_text_content`` handles both single-block and 3-block shapes."""
 
     def test_parses_single_text_block(self) -> None:
         result = _text_result({"records": [{"a": 1}]})
         self.assertEqual(_parse_text_content(result), {"records": [{"a": 1}]})
+
+    def test_parses_three_block_remote_shape(self) -> None:
+        records = [{"event.id": "p-1", "event.status": "ACTIVE"}]
+        result = _remote_result(records)
+        self.assertEqual(_parse_text_content(result), records)
+
+    def test_three_block_empty_records_returns_none(self) -> None:
+        result = _remote_result([])
+        self.assertIsNone(_parse_text_content(result))
 
     def test_is_error_propagates_message(self) -> None:
         result = CallToolResult(
@@ -99,7 +116,7 @@ class TestParseTextContent(unittest.TestCase):
             _parse_text_content(result)
         self.assertIn("grail budget exceeded", str(ctx.exception))
 
-    def test_multiple_blocks_refused(self) -> None:
+    def test_two_blocks_refused(self) -> None:
         result = CallToolResult(
             content=[
                 TextContent(type="text", text='{"a": 1}'),
@@ -119,9 +136,6 @@ class TestParseTextContent(unittest.TestCase):
             _parse_text_content(result)
 
     def test_zero_results_sentinel_returns_none(self) -> None:
-        # Confirmed during the live spike against v1.8.6: list_problems with
-        # no matches returns the bare string "No problems found", not a JSON
-        # envelope. The parser maps that to None so callers return [].
         for sentinel in (
             "No problems found",
             "no records returned",
@@ -135,8 +149,6 @@ class TestParseTextContent(unittest.TestCase):
             self.assertIsNone(_parse_text_content(result), msg=sentinel)
 
     def test_markdown_fenced_json_extracted(self) -> None:
-        # execute_dql v1.8.6 returns a markdown document with the records
-        # list inside a ```json ... ``` fence rather than raw JSON.
         text = (
             "📊 **DQL Query Results**\n"
             "- **Scanned Records:** 41\n\n"
@@ -157,54 +169,51 @@ class TestParseTextContent(unittest.TestCase):
 class TestListOpenProblems(unittest.IsolatedAsyncioTestCase):
     """Acceptance criterion 1: structured iterable response."""
 
-    async def test_returns_list_of_dicts(self) -> None:
+    async def test_returns_list_of_dicts_remote_shape(self) -> None:
         session = MagicMock()
         problems = [
             {
-                "problemId": "p-1",
-                "title": "High failure rate",
-                "severity": "ERROR",
-                "status": "OPEN",
-                "startTime": "2026-06-01T12:34:56Z",
-                "affectedEntities": [{"entityId": "WORKSPACE-1", "name": "ws"}],
+                "event.id": "p-1",
+                "display_id": "P-1",
+                "event.status": "ACTIVE",
+                "event.start": "2026-06-01T12:34:56Z",
+                "event.category": "ERROR",
+                "affected_entity_ids": ["WORKSPACE-1"],
             }
         ]
-        session.call_tool = AsyncMock(return_value=_text_result({"problems": problems}))
+        session.call_tool = AsyncMock(return_value=_remote_result(problems))
 
         out = await list_open_problems(session, "WORKSPACE-1")
 
         self.assertEqual(out, problems)
-        # Status filter is "ACTIVE" — confirmed by the issue #23 spike against
-        # @dynatrace-oss/dynatrace-mcp-server v1.8.6 (rejects "OPEN").
-        session.call_tool.assert_awaited_once_with(
-            "list_problems", {"status": "ACTIVE", "entity": "WORKSPACE-1"}
-        )
+        # Remote server tool name is "query-problems" (kebab-case).
+        session.call_tool.assert_awaited_once_with("query-problems", {"status": "ACTIVE"})
 
     async def test_empty_problems_returns_empty_list(self) -> None:
         session = MagicMock()
-        session.call_tool = AsyncMock(return_value=_text_result({"problems": []}))
+        session.call_tool = AsyncMock(return_value=_remote_result([]))
         self.assertEqual(await list_open_problems(session, "WORKSPACE-1"), [])
 
-    async def test_omits_entity_when_unset(self) -> None:
-        # Empty entity -> argument dropped, not passed as "". Matches what the
-        # smoke does on a fresh trial tenant where no workspace entity exists.
+    async def test_entity_id_param_accepted_but_not_forwarded(self) -> None:
+        # Remote server query-problems does not accept an entity arg; the
+        # entity_id param is kept for API compatibility but silently ignored.
         session = MagicMock()
-        session.call_tool = AsyncMock(return_value=_text_result({"problems": []}))
+        session.call_tool = AsyncMock(return_value=_remote_result([]))
+        await list_open_problems(session, "WORKSPACE-1")
+        session.call_tool.assert_awaited_once_with("query-problems", {"status": "ACTIVE"})
 
+    async def test_omits_entity_when_unset(self) -> None:
+        session = MagicMock()
+        session.call_tool = AsyncMock(return_value=_remote_result([]))
         await list_open_problems(session, "")
-
-        session.call_tool.assert_awaited_once_with("list_problems", {"status": "ACTIVE"})
+        session.call_tool.assert_awaited_once_with("query-problems", {"status": "ACTIVE"})
 
     async def test_top_level_array_shape_supported(self) -> None:
-        # Some MCP server versions return the array at the top level rather
-        # than under a "problems" key — accept both.
         session = MagicMock()
-        session.call_tool = AsyncMock(return_value=_text_result([{"problemId": "p-1"}]))
-        self.assertEqual(await list_open_problems(session, "WORKSPACE-1"), [{"problemId": "p-1"}])
+        session.call_tool = AsyncMock(return_value=_remote_result([{"event.id": "p-1"}]))
+        self.assertEqual(await list_open_problems(session, "WORKSPACE-1"), [{"event.id": "p-1"}])
 
     async def test_no_problems_sentinel_returns_empty_list(self) -> None:
-        # v1.8.6 returns the literal string "No problems found" instead of
-        # an empty JSON envelope. Confirmed by the live spike.
         session = MagicMock()
         session.call_tool = AsyncMock(
             return_value=CallToolResult(
@@ -218,25 +227,22 @@ class TestListOpenProblems(unittest.IsolatedAsyncioTestCase):
 class TestRunDQL(unittest.IsolatedAsyncioTestCase):
     """Acceptance criterion 2: rows we can parse."""
 
-    async def test_returns_records_array(self) -> None:
+    async def test_returns_records_array_remote_shape(self) -> None:
         session = MagicMock()
         records = [{"timestamp": "2026-06-01T12:34:56Z", "severity": "high", "attack_id": "A1"}]
-        session.call_tool = AsyncMock(
-            return_value=_text_result({"records": records, "metadata": {"scannedBytes": 0}})
-        )
+        session.call_tool = AsyncMock(return_value=_remote_result(records))
 
         out = await run_dql(session, "fetch events | limit 1")
 
         self.assertEqual(out, records)
-        # Argument key is "dqlStatement" — confirmed by the issue #23 spike
-        # against @dynatrace-oss/dynatrace-mcp-server v1.8.6.
+        # Remote server tool name is "execute-dql"; arg key is "dqlQueryString".
         session.call_tool.assert_awaited_once_with(
-            "execute_dql", {"dqlStatement": "fetch events | limit 1"}
+            "execute-dql", {"dqlQueryString": "fetch events | limit 1"}
         )
 
     async def test_no_records_returns_empty_list(self) -> None:
         session = MagicMock()
-        session.call_tool = AsyncMock(return_value=_text_result({"records": []}))
+        session.call_tool = AsyncMock(return_value=_remote_result([]))
         self.assertEqual(await run_dql(session, "fetch events | limit 1"), [])
 
 

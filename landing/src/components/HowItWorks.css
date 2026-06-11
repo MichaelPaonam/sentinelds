@@ -1,0 +1,46 @@
+.how__steps {
+  display: grid;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .how__steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.how__step-num {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--accent);
+  text-shadow: var(--shadow-neon);
+  margin-bottom: 0.75rem;
+}
+
+.how__step-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+.how__step-desc {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.how__terminal {
+  margin-top: 3rem;
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+
+.how__terminal .line--accent {
+  color: var(--accent);
+}
+
+.how__terminal .line--warn {
+  color: var(--destructive);
+}
