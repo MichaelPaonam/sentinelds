@@ -17,6 +17,8 @@ instrument_genai()
 # Patch google.genai.types.Part to null part_metadata BEFORE importing any
 # google.adk.a2a module. See src/core/genai_compat.py.
 import uvicorn  # noqa: E402
+from a2a.client.client import ClientConfig as A2AClientConfig  # noqa: E402
+from a2a.client.client_factory import ClientFactory as A2AClientFactory  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 from google.adk.agents import SequentialAgent  # noqa: E402
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
@@ -32,11 +34,19 @@ RESEARCH_AGENT_CARD_BASE_URL = os.getenv("RESEARCH_AGENT_CARD_BASE_URL", "http:/
 FEATURE_AGENT_CARD_BASE_URL = os.getenv("FEATURE_AGENT_CARD_BASE_URL", "http://localhost:8080")
 MODELING_AGENT_CARD_BASE_URL = os.getenv("MODELING_AGENT_CARD_BASE_URL", "http://localhost:8080")
 
+# RemoteA2aAgent defaults to streaming=False when it builds its own ClientFactory,
+# which causes the orchestrator to buffer entire sub-agent responses before emitting
+# any SSE event. Passing an explicit factory with streaming=True makes each
+# RemoteA2aAgent call its leaf via message/stream, so intermediate events
+# propagate incrementally through the SequentialAgent to the browser.
+_streaming_factory = A2AClientFactory(config=A2AClientConfig(streaming=True))
+
 research_agent = RemoteA2aAgent(
     name="research_agent",
     agent_card=f"{RESEARCH_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
     description="Research Agent: surveys literature to extract insights \
                  and inform feature engineering and modeling.",
+    a2a_client_factory=_streaming_factory,
 )
 
 feature_agent = RemoteA2aAgent(
@@ -44,6 +54,7 @@ feature_agent = RemoteA2aAgent(
     agent_card=f"{FEATURE_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
     description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals \
     into ML-ready features.",
+    a2a_client_factory=_streaming_factory,
 )
 
 modeling_agent = RemoteA2aAgent(
@@ -51,6 +62,7 @@ modeling_agent = RemoteA2aAgent(
     agent_card=f"{MODELING_AGENT_CARD_BASE_URL}/.well-known/agent-card.json",
     description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered \
     features and produces evaluation reports.",
+    a2a_client_factory=_streaming_factory,
 )
 
 root_agent = SequentialAgent(
