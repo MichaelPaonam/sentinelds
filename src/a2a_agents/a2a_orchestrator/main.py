@@ -19,6 +19,7 @@ instrument_genai()
 import uvicorn  # noqa: E402
 from a2a.client.client import ClientConfig as A2AClientConfig  # noqa: E402
 from a2a.client.client_factory import ClientFactory as A2AClientFactory  # noqa: E402
+from a2a.types import AgentCapabilities, AgentCard  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 from google.adk.agents import SequentialAgent  # noqa: E402
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
@@ -71,7 +72,22 @@ root_agent = SequentialAgent(
     sub_agents=[research_agent, feature_agent, modeling_agent],
 )
 
-a2a_root_agent = to_a2a(agent=root_agent, host="localhost", port=INTERNAL_PORT, protocol="http")
+a2a_root_agent = to_a2a(
+    agent=root_agent,
+    host="localhost",
+    port=INTERNAL_PORT,
+    protocol="http",
+    agent_card=AgentCard(
+        name="root_agent",
+        description="Sequential data-science pipeline: research -> features -> modeling.",
+        url=f"http://localhost:{INTERNAL_PORT}",
+        version="1.0.0",
+        capabilities=AgentCapabilities(streaming=True),
+        default_input_modes=["text/plain"],
+        default_output_modes=["text/plain"],
+        skills=[],
+    ),
+)
 
 
 class AgentCardURLMiddleware(BaseHTTPMiddleware):
