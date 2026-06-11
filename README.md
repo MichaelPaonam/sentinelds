@@ -141,7 +141,8 @@ sentinelds/
 │   ├── ai-security-threat-modelling.md        ← AISMM pillars, MITRE ATLAS, defense loop
 │   ├── agents-exploit-scenarios.md            ← A1 + A2 step-by-step walkthroughs
 │   ├── dynatrace-mcp-notes.md                 ← Dynatrace MCP spike: tool shapes, response schemas
-│   └── dynatrace-mcp-options.md               ← MCP connectivity options and trade-offs
+│   ├── dynatrace-mcp-options.md               ← MCP connectivity options and trade-offs
+│   └── orchestrator.md                        ← Cloud Run orchestrator: no agent card (expected), endpoints
 ├── src/
 │   ├── agents/
 │   │   ├── agent.py                           ← root SequentialAgent (research → features → modeling)
@@ -262,11 +263,17 @@ PYTHONPATH=src uv run python -m e2e.run_demo
 
 ## Deployment
 
-The three A2A agents (`a2a_research`, `a2a_feature`, `a2a_modeling`) are each packaged as Docker containers under `src/a2a_agents/`.
+The three A2A agents (`a2a_research`, `a2a_feature`, `a2a_modeling`) are each packaged as Docker containers under `src/a2a_agents/`. A fourth service, **`sentinelds-orchestrator`**, runs the ADK web UI and coordinates those sub-agents via `RemoteA2aAgent`.
 
 ### Cloud Run (current approach)
 
-We deploy on **Google Cloud Run** with **Secret Manager** enabled. Each service is built and pushed to Artifact Registry, then deployed with secrets mounted as environment variables via `--set-secrets`. See the `deploy_a2a_*.sh` scripts at the repo root for the exact `gcloud run deploy` invocations.
+We deploy on **Google Cloud Run** with **Secret Manager** enabled. Each service is built and pushed to Artifact Registry, then deployed with secrets mounted as environment variables via `--set-secrets`. See the `deploy_a2a_*.sh` scripts at the repo root for the exact `gcloud run deploy` invocations; use `deploy_orchestrator.sh` for the orchestrator.
+
+### Orchestrator vs A2A agent cards
+
+`GET /.well-known/agent-card.json` on the orchestrator returns **404** — this is **expected**. The orchestrator is an ADK `SequentialAgent` web app (`get_fast_api_app`), not an A2A service. Agent cards are served by the three sub-agent Cloud Run services (`sentinelds-a2a-research`, `-feature`, `-modeling`). `/apps/orchestrator/app-info` may also report that the root agent is not an `LlmAgent`; same reason.
+
+Full endpoint table, env vars, and local vs Cloud Run notes: [`docs/orchestrator.md`](docs/orchestrator.md).
 
 ### Agent Runtime (not used)
 

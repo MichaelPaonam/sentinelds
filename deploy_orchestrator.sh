@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# Deploy sentinelds-orchestrator: ADK web UI + SequentialAgent pipeline.
+#
+# This service does NOT expose /.well-known/agent-card.json (404 is expected).
+# It is not an A2A peer — sub-agents are RemoteA2aAgent clients that fetch
+# agent cards from the three a2a_* Cloud Run services. See docs/orchestrator.md.
+
 # Always clean up generated files, even if deploy fails — otherwise a stale
 # Dockerfile/main.py from a previous run could be reused, or a missing
 # Dockerfile could cause gcloud to silently fall back to buildpacks (which
