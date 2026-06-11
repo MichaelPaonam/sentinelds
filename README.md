@@ -127,6 +127,8 @@ flowchart TD
     SG -. "PermissionError\n(A1: next fetch halted)" .-> RA
 ```
 
+![diagram](./docs/architecture.svg)
+
 Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
 
 ---
