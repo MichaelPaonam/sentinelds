@@ -16,7 +16,7 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -93,7 +93,8 @@ class TestA2NegativeTests(unittest.TestCase):
         self.assertFalse(DatasetQuarantine.is_quarantined(checksum))
 
     def test_rolling_baseline_average_checks(self) -> None:
-        """Drift calculations must check against the rolling average baseline window of 5 snapshots."""
+        """Drift calculations must check against the \
+            rolling average baseline window of 5 snapshots."""
         baseline = load_baseline_stats()
         self.assertIn("label_0_proportion", baseline)
         self.assertIn("feature_means", baseline)
@@ -116,11 +117,15 @@ class TestA2NegativeTests(unittest.TestCase):
             result = pandas_profile(self.severe_poisoned_csv)
             self.assertEqual(result["status"], "success")
             self.assertTrue(sess.compromised)
-            self.assertIn("Training halted: ingested dataset shows label-distribution drift", sess.compromise_reason)
+            self.assertIn(
+                "Training halted: ingested dataset shows label-distribution drift",
+                sess.compromise_reason,
+            )
             mock_emit.assert_called_once()
 
     def test_quarantine_reversibility_and_idempotency(self) -> None:
-        """Verify adding, removing, and duplicate adding on DatasetQuarantine is clean and reversable."""
+        """Verify adding, removing, and duplicate adding on \
+            DatasetQuarantine is clean and reversable."""
         checksum = "test_checksum_123456"
 
         # Initially not quarantined

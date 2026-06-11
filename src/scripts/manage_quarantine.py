@@ -1,6 +1,7 @@
 """CLI utility to manage dataset quarantine list."""
 
 import argparse
+
 from sentinel.preflight import DatasetQuarantine
 
 
@@ -8,8 +9,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Manage quarantined dataset checksums.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--list", action="store_true", help="List all quarantined checksums.")
-    group.add_argument("--add", type=str, metavar="CHECKSUM", help="Manually quarantine a checksum.")
-    group.add_argument("--release", type=str, metavar="CHECKSUM", help="Manually release/remove a checksum.")
+    group.add_argument(
+        "--add", type=str, metavar="CHECKSUM", help="Manually quarantine a checksum."
+    )
+    group.add_argument(
+        "--release", type=str, metavar="CHECKSUM", help="Manually release/remove a checksum."
+    )
 
     args = parser.parse_args()
 

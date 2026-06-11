@@ -1,6 +1,7 @@
 """Feature engineering and data analysis tools for the Feature Engineering Agent."""
 
 import glob
+import hashlib
 import json
 import os
 import tempfile
@@ -8,11 +9,9 @@ from typing import Any, Dict, List, Union
 
 import pandas as pd
 
+from core.config import settings
 from core.gcs import download_to_path
 from observability import current_span, traced_tool
-
-import hashlib
-from core.config import settings
 from sentinel.preflight import DatasetQuarantine, emit_dataset_drift_candidate
 from sentinel.session import get_sentinel_session
 
@@ -28,7 +27,7 @@ def calculate_dataframe_checksum(df: pd.DataFrame) -> str:
 
     df_canon = df_canon.sort_values(by=list(df_canon.columns)).reset_index(drop=True)
     csv_str = df_canon.to_csv(index=False).replace("\r\n", "\n")
-    
+
     return hashlib.sha256(csv_str.encode("utf-8")).hexdigest()
 
 
@@ -49,7 +48,7 @@ def load_baseline_stats() -> dict[str, Any]:
                 p_0 = label_dist.get("0", {}).get("proportion")
                 if p_0 is not None:
                     label_0_proportions.append(p_0)
-                
+
                 feat_mean = data.get("feature_mean", {})
                 for col, val in feat_mean.items():
                     if col == "label":
@@ -60,16 +59,15 @@ def load_baseline_stats() -> dict[str, Any]:
         except Exception:
             pass
 
-    avg_label_0_prop = sum(label_0_proportions) / len(label_0_proportions) if label_0_proportions else 0.6
-    avg_feature_means = {
-        col: sum(vals) / len(vals) for col, vals in feature_means.items() if vals
-    }
+    avg_label_0_prop = (
+        sum(label_0_proportions) / len(label_0_proportions) if label_0_proportions else 0.6
+    )
+    avg_feature_means = {col: sum(vals) / len(vals) for col, vals in feature_means.items() if vals}
 
     return {
         "label_0_proportion": avg_label_0_prop,
         "feature_means": avg_feature_means,
     }
-
 
 
 @traced_tool("csv_read")
@@ -203,8 +201,13 @@ def pandas_profile(filepath: str) -> dict[str, Any]:
         # 4. Handle Violation (Drift Exceeds Threshold)
         if label_drift > 0.05 or len(drifted_features) > 0:
             import sys
+
             DatasetQuarantine.add(checksum)
-            print(f"[Sentinel] Dataset Drift Detected! Checksum: {checksum}, Label Drift: {label_drift:.4f}, Drifted Features: {drifted_features}", file=sys.stderr)
+            print(
+                f"[Sentinel] Dataset Drift Detected! Checksum: {checksum}, \
+                Label Drift: {label_drift:.4f}, Drifted Features: {drifted_features}",
+                file=sys.stderr,
+            )
 
             # Compromise the active SentinelSession
             sess = get_sentinel_session()

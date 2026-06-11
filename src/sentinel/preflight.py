@@ -314,8 +314,10 @@ class Sentinel:
                 # 1) Check active open problems
                 problems = await list_open_problems(sess, ws_id)
                 halt_problems = [
-                    p for p in problems
-                    if p.get("severity") in _HALT_SEVERITIES or "Dataset Drift" in p.get("title", "")
+                    p
+                    for p in problems
+                    if p.get("severity") in _HALT_SEVERITIES
+                    or "Dataset Drift" in p.get("title", "")
                 ]
 
                 if halt_problems:
