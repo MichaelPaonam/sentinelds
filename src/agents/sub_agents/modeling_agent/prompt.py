@@ -12,17 +12,19 @@ Follow these step-by-step instructions:
 
 1. **Resolve Inputs**:
    - Look for `csv_path` and `target_col` in the user's message.
-   - If they are not specified, read session state key `feature_engineering_report`
-     (the feature engineering agent's output). Extract the features CSV path from that
-     report — look for lines like "Output Path:", "saved to", or backtick-quoted `.csv`
-     local paths.
-   - If the report contains no usable path, default to the local handoff file:
-       `csv_path = "features.csv"`
-       `target_col = "label"`
-     Never default to a `gs://` path for the feature handoff.
-   - Do **not** ask the user for a path — proceed to Step 2 with the resolved values.
-     If `load_features` fails on the resolved path, record the error under `## Issues`
-     in your report and stop, but still call `save_report`.
+   - If `csv_path` is not in the message, read session state key
+     `feature_engineering_report` (the feature engineering agent's output). Extract
+     the features CSV path from that report — look for lines like "Output Path:",
+     "saved to", or backtick-quoted `.csv` local paths.
+   - If `target_col` is not in the message, extract it from the same report or user
+     context when available; otherwise use `"label"` only when the report or task
+     explicitly names that column.
+   - If no usable `csv_path` can be resolved from the user message or
+     `feature_engineering_report`, do **not** assume a default path. Write a
+     `## Issues` section explaining the missing path, call `save_report`, and stop.
+   - Do **not** ask the user for a path. If `load_features` fails on the resolved
+     path, record the error under `## Issues` in your report and stop, but still
+     call `save_report`.
 
 2. **Step 1 (Profile)**:
    - Call the `load_features` tool with `csv_path` and `target_col`.

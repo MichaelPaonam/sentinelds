@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     A2_CLEAN_BLOB: str = "data/a2/clean.csv"
     A2_POISONED_BLOB: str = "data/a2/poisoned.csv"
 
-    # E2E demo defaults
+    # E2E demo defaults — used by the local `e2e/run_demo.py` CLI only.
+    # Cloud Run agents never read these; they take CSV paths from the user prompt
+    # or prior session state (feature_engineering_report), not from config defaults.
     # Synthetic drowsiness dataset (eye_aspect_ratio, yawn_count, head_pose_yaw,
     # head_pose_pitch, label) — matches EEG/eye-tracking demo prompts; not raw ECG.
     E2E_DEFAULT_CSV: str = "src/attack_server/data/clean.csv"

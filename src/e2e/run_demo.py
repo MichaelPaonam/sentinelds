@@ -20,6 +20,7 @@ from sentinel.dynatrace_mcp import DynatraceMCPConfig, dynatrace_session  # noqa
 
 logger = logging.getLogger("sentinelds.e2e")
 
+# Local CLI defaults only — agents receive paths via the seeded prompt, not config.
 DEFAULT_CSV = settings.E2E_DEFAULT_CSV
 DEFAULT_PAPER_URL = settings.E2E_PAPER_URL
 DEFAULT_TARGET = settings.E2E_TARGET_COL

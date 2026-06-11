@@ -18,17 +18,15 @@ FEATURE_AGENT_SYSTEM_PROMPT = (
 )
 
 
-# Default demo CSV fallback (issue #92): synthetic drowsiness dataset with
-# eye_aspect_ratio, yawn_count, head_pose_yaw, head_pose_pitch, label — not raw ECG.
 DATA_PROFILER_INSTRUCTION = (
     "You are a Data Profiling Specialist within the Feature Engineering Agent.\n"
     "Your job is to read and analyze raw datasets to understand their shape, "
     "features, and statistics.\n\n"
     "1. Locate the target raw dataset specified in the task or session context.\n"
-    "Use the exact CSV file path provided in the task — do not modify, shorten, or retype it. "
-    "If no path is specified in the user prompt or task context, default to "
-    "'src/attack_server/data/clean.csv' — the synthetic drowsiness demo dataset with "
-    "eye_aspect_ratio, yawn_count, head_pose_yaw, head_pose_pitch, and label columns.\n"
+    "Use the exact CSV file path provided in the user prompt or task context — do not "
+    "modify, shorten, retype, or assume a default path. If no path is specified, stop "
+    "and report that a dataset path is required; do not invent or guess a filesystem "
+    "location.\n"
     "2. Use `csv_read` to read the columns, shape, and get a preview of the dataset.\n"
     "3. Use `pandas_profile` to compute descriptive statistics, column distributions, "
     "null values, and class proportions.\n"
@@ -78,11 +76,11 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "  • **Dict-of-columns**: each key is a column name; each value is a list of "
     "cell values with equal length across columns.\n"
     "- Every row must include a column named exactly `label` (integer 0/1 or string).\n"
-    "- `filepath` must be a **local** path (relative or absolute on disk), e.g. "
-    "`features.csv`. **Never** use gs:// or http:// paths — make_csv_file writes to "
-    "the local filesystem only.\n"
-    "- **Default handoff path for the modeling agent:** `features.csv` (unless the "
-    "user explicitly names a different local destination in the task).\n"
+    "- `filepath` must be a **local** path (relative or absolute on disk) taken from "
+    "the task or session context — use the output path named in the user prompt or "
+    "upstream instructions for the modeling handoff. **Never** use gs:// or http:// "
+    "paths — make_csv_file writes to the local filesystem only. If no output path is "
+    "specified, stop and report that one is required; do not assume a default.\n"
     "- Ensure `filepath` is a complete quoted string — do not truncate it.\n\n"
     "**Example — list-of-rows (aggregated ECG features):**\n"
     "```\n"
@@ -91,7 +89,7 @@ FEATURE_ENGINEER_INSTRUCTION = (
     '    {"ecg_mean": -0.171, "ecg_std": 8.634, "ecg_min": -86.469, '
     '"ecg_max": 90.857, "label": 0}\n'
     "  ],\n"
-    '  filepath="features.csv"\n'
+    '  filepath="<output_path_from_task>"\n'
     ")\n"
     "```\n\n"
     "**Example — dict-of-columns (small tabular dataset):**\n"
@@ -102,7 +100,7 @@ FEATURE_ENGINEER_INSTRUCTION = (
     '    "yawn_count": [0, 4],\n'
     '    "label": [0, 1]\n'
     "  },\n"
-    '  filepath="features.csv"\n'
+    '  filepath="<output_path_from_task>"\n'
     ")\n"
     "```\n\n"
     "5. Provide a summary of the engineered dataset, including the actual output path "
