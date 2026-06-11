@@ -223,6 +223,46 @@ PYTHONPATH=src uv run python -m e2e.run_demo
 # E2E_TARGET_COL  default: label
 ```
 
+### Static Analysis, Testing & Quality Assurance
+
+Maintain software quality and verify behavior using our configured environment tooling:
+
+- **Static Type Checking (`mypy`)**:
+  ```bash
+  uv run mypy src
+  ```
+- **Automated Test Suite (`pytest`)**:
+  ```bash
+  uv run pytest
+  ```
+
+### Managing Dataset Quarantines (Phase 2 / A2)
+
+A dedicated command-line manager is available to interact with the local thread-safe dataset quarantine store (`data/quarantine.json`):
+
+- **List all quarantined checksums**:
+  ```bash
+  PYTHONPATH=src uv run python src/scripts/manage_quarantine.py --list
+  ```
+- **Manually quarantine a dataset checksum**:
+  ```bash
+  PYTHONPATH=src uv run python src/scripts/manage_quarantine.py --add <MD5_CHECKSUM>
+  ```
+- **Manually release a dataset from quarantine**:
+  ```bash
+  PYTHONPATH=src uv run python src/scripts/manage_quarantine.py --release <MD5_CHECKSUM>
+  ```
+
+### Running the Dashboard & Monospace Chat Console Locally
+
+You can launch and view the retro-brutalist CLI frontend dashboard right from your browser:
+
+```bash
+# Host the web server locally (port 8080)
+python -m http.server -d src/dashboard/ 8080
+```
+Then, open your browser to **[http://localhost:8080](http://localhost:8080)**. Use keyboard shortcuts `F1`/`F2` to toggle local simulation scenarios, `F3` to jump directly into the interactive monospace chat console, and `F4` to navigate back to the main security telemetry dashboard.
+
 ---
 
 ## Deployment
