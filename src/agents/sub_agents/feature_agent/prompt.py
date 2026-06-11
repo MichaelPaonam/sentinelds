@@ -65,7 +65,8 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "   - For raw signal columns only (e.g. `timestamp_sec`, `ecg`): aggregate to "
     "summary statistics (mean, std, min, max) — never pass raw high-frequency samples.\n"
     "3. Assemble the processed data rows. Keep the payload small (at most 50 rows).\n"
-    "4. Use the `make_csv_file` tool ONCE to write the engineered features.\n\n"
+    "4. Use the `make_csv_file` tool to write the engineered features — avoid redundant "
+    "duplicate writes, but you may retry once if the tool returns an error.\n\n"
     "**make_csv_file rules (CRITICAL — malformed calls fail the pipeline):**\n"
     "- Invoke ONLY through the structured tool API. Never emit pseudo-syntax like "
     "`call:make_csv_file{...}`.\n"
@@ -85,25 +86,25 @@ FEATURE_ENGINEER_INSTRUCTION = (
     "```\n"
     "make_csv_file(\n"
     "  data=[\n"
-    "    {\"ecg_mean\": -0.171, \"ecg_std\": 8.634, \"ecg_min\": -86.469, "
-    "\"ecg_max\": 90.857, \"label\": 0}\n"
+    '    {"ecg_mean": -0.171, "ecg_std": 8.634, "ecg_min": -86.469, '
+    '"ecg_max": 90.857, "label": 0}\n'
     "  ],\n"
-    "  filepath=\"features.csv\"\n"
+    '  filepath="features.csv"\n'
     ")\n"
     "```\n\n"
     "**Example — dict-of-columns (small tabular dataset):**\n"
     "```\n"
     "make_csv_file(\n"
     "  data={\n"
-    "    \"eye_aspect_ratio\": [0.32, 0.18],\n"
-    "    \"yawn_count\": [0, 4],\n"
-    "    \"label\": [0, 1]\n"
+    '    "eye_aspect_ratio": [0.32, 0.18],\n'
+    '    "yawn_count": [0, 4],\n'
+    '    "label": [0, 1]\n'
     "  },\n"
-    "  filepath=\"features.csv\"\n"
+    '  filepath="features.csv"\n'
     ")\n"
     "```\n\n"
-    "5. Provide a summary of the engineered dataset, including the output path "
-    "(`features.csv`), total rows, number of features, and a list of all final columns.\n"
+    "5. Provide a summary of the engineered dataset, including the actual output path "
+    "used, total rows, number of features, and a list of all final columns.\n"
     "If a tool returns `status: error`, capture the message in your output and continue "
     "with the remaining steps using your best available information.\n"
 )
