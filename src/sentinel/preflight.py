@@ -16,6 +16,7 @@ import functools
 import inspect
 import json
 import logging
+import os
 import sys
 from dataclasses import dataclass, field  # noqa: F401 — field reserved for future use
 from enum import Enum
@@ -23,8 +24,147 @@ from typing import Any
 
 from mcp import ClientSession
 
-from core.sentinel_audit import emit_audit
+from core.sentinel_audit import emit_audit, emit_audit_sync
 from sentinel.dynatrace_mcp import list_open_problems, run_dql
+
+
+class DatasetQuarantine:
+    """File-backed JSON store for quarantined dataset SHA-256 checksums."""
+
+    _file_path = "data/quarantine.json"
+
+    @classmethod
+    def _load(cls) -> list[str]:
+        if not os.path.exists(cls._file_path):
+            return []
+        try:
+            with open(cls._file_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return []
+                data = json.loads(content)
+                if isinstance(data, list):
+                    return [str(item) for item in data]
+                return []
+        except Exception as e:
+            logger.warning("Failed to load DatasetQuarantine: %s", e)
+            return []
+
+    @classmethod
+    def _save(cls, checksums: list[str]) -> None:
+        try:
+            dir_name = os.path.dirname(cls._file_path)
+            if dir_name and not os.path.exists(dir_name):
+                os.makedirs(dir_name, exist_ok=True)
+            with open(cls._file_path, "w", encoding="utf-8") as f:
+                json.dump(checksums, f, indent=4)
+        except Exception as e:
+            logger.warning("Failed to save DatasetQuarantine: %s", e)
+
+    @classmethod
+    def add(cls, checksum: str) -> None:
+        """Add a checksum to quarantine idempotently."""
+        checksums = cls._load()
+        if checksum not in checksums:
+            checksums.append(checksum)
+            cls._save(checksums)
+
+    @classmethod
+    def remove(cls, checksum: str) -> bool:
+        """Remove a checksum from quarantine. Returns True if removed."""
+        checksums = cls._load()
+        if checksum in checksums:
+            checksums.remove(checksum)
+            cls._save(checksums)
+            return True
+        return False
+
+    @classmethod
+    def list_all(cls) -> list[str]:
+        """List all quarantined checksums."""
+        return cls._load()
+
+    @classmethod
+    def is_quarantined(cls, checksum: str) -> bool:
+        """Return True if the checksum is in quarantine."""
+        return checksum in cls._load()
+
+
+def emit_dataset_drift_candidate(
+    *,
+    span_id: str,
+    workspace_entity_id: str,
+    dynatrace_api_url: str,
+    dynatrace_api_token: str,
+    checksum: str,
+    label_drift: float,
+    drifted_features: list[str],
+) -> bool:
+    """POST a ``sentinelds.dataset.drift_candidate`` BIZ_EVENT to Dynatrace.
+
+    Uses the Dynatrace Events API v2 (``/api/v2/events/ingest``). The event is
+    attached to the workspace entity so Davis AI and the Sentinel DQL can find
+    it by entity.
+    """
+    import httpx
+
+    event_body: dict = {
+        "eventType": "CUSTOM_INFO",
+        "title": "sentinelds.dataset.drift_candidate",
+        "properties": {
+            "event.type": "sentinelds.dataset.drift_candidate",
+            "event.kind": "BIZ_EVENT",
+            "span.id": span_id,
+            "matched_categories": "dataset_drift",
+            "checksum": checksum,
+            "label_drift": str(label_drift),
+            "drifted_features": ", ".join(drifted_features),
+            "excerpt_hash": checksum[:8] if checksum else "",
+            "workspace_entity_id": workspace_entity_id,
+        },
+    }
+
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        event_body["entitySelector"] = f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")'
+
+    endpoint = f"{dynatrace_api_url.rstrip('/')}/api/v2/events/ingest"
+    headers = {
+        "Authorization": f"Api-Token {dynatrace_api_token}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+
+    emit_audit_sync(
+        {
+            "event.type": "sentinelds.dataset.drift_candidate",
+            "span.id": span_id,
+            "matched_categories": ["dataset_drift"],
+            "checksum": checksum,
+            "label_drift": label_drift,
+            "drifted_features": drifted_features,
+            "excerpt_hash": checksum[:8] if checksum else "",
+            "workspace_entity_id": workspace_entity_id,
+        }
+    )
+
+    try:
+        response = httpx.post(endpoint, json=event_body, headers=headers, timeout=5.0)
+        if response.is_success:
+            logger.info(
+                "sentinelds.dataset.drift_candidate event ingested (span=%s checksum=%s)",
+                span_id,
+                checksum,
+            )
+            return True
+        logger.warning(
+            "Dynatrace events/ingest returned %s for drift: %s",
+            response.status_code,
+            response.text[:200],
+        )
+        return False
+    except Exception as exc:
+        logger.warning("Failed to emit dataset drift candidate event: %s", exc)
+        return False
+
 
 logger = logging.getLogger("sentinel.preflight")
 
@@ -173,7 +313,10 @@ class Sentinel:
             try:
                 # 1) Check active open problems
                 problems = await list_open_problems(sess, ws_id)
-                halt_problems = [p for p in problems if p.get("severity") in _HALT_SEVERITIES]
+                halt_problems = [
+                    p for p in problems
+                    if p.get("severity") in _HALT_SEVERITIES or "Dataset Drift" in p.get("title", "")
+                ]
 
                 if halt_problems:
                     decision = Verdict.HALT
@@ -184,7 +327,12 @@ class Sentinel:
                     rows = await run_dql(sess, _sentinel_event_dql(ws_id, "5m"))
                     if rows:
                         input_problems = rows
-                        if any(r.get("severity") == "high" for r in rows):
+                        if any(
+                            r.get("severity") == "high"
+                            or r.get("event.type") == "sentinelds.dataset.drift_candidate"
+                            or r.get("eventType") == "sentinelds.dataset.drift_candidate"
+                            for r in rows
+                        ):
                             decision = Verdict.HALT
                             rule_fired = "CUSTOM_EVENT_HALT"
                         else:
