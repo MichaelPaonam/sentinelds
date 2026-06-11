@@ -18,6 +18,7 @@ instrument_genai()
 # only needs to land before any Part is constructed — but importing it first
 # keeps the ordering obvious and matches the intent of the comment.
 import uvicorn  # noqa: E402
+from a2a.types import AgentCapabilities, AgentCard  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 
 from agents.sub_agents.research_agent.agent import research_agent  # noqa: E402
@@ -31,7 +32,23 @@ INTERNAL_PORT = int(os.getenv("PORT", 8080))
 IS_CLOUD_RUN = "K_SERVICE" in os.environ  # Natively injected by Cloud Run
 
 a2a_research_agent = to_a2a(
-    agent=research_agent, host="localhost", port=INTERNAL_PORT, protocol="http"
+    agent=research_agent,
+    host="localhost",
+    port=INTERNAL_PORT,
+    protocol="http",
+    agent_card=AgentCard(
+        name="research_agent",
+        description=(
+            "Research Agent: surveys literature to extract insights and "
+            "inform feature engineering and modeling."
+        ),
+        url=f"http://localhost:{INTERNAL_PORT}",
+        version="1.0.0",
+        capabilities=AgentCapabilities(streaming=True),
+        default_input_modes=["text/plain"],
+        default_output_modes=["text/plain"],
+        skills=[],
+    ),
 )
 
 

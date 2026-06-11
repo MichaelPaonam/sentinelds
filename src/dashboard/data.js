@@ -105,21 +105,21 @@ const SCENARIO_DATA = {
             {
                 time: "04:12:05",
                 agent: "Modelling Agent",
-                tool: "train_xgboost('src/data/engineered_features.csv')",
+                tool: "train_xgboost('gs://sentinelds-data-buckets/engineered/features_v1.csv')",
                 policy: "Dataset Drift Active - Block Training",
                 verdict: "HALT"
             },
             {
                 time: "04:10:33",
                 agent: "Feature Eng. Agent",
-                tool: "pandas_profile('data/raw/poisoned.csv')",
+                tool: "pandas_profile('gs://sentinelds-data-buckets/raw/ecg_frames_poisoned.csv')",
                 policy: "Advisory Drift Scanner",
                 verdict: "WARN"
             },
             {
                 time: "04:09:12",
                 agent: "Feature Eng. Agent",
-                tool: "csv_read('data/raw/poisoned.csv')",
+                tool: "csv_read('gs://sentinelds-data-buckets/raw/ecg_frames_poisoned.csv')",
                 policy: "Local Read Authorization",
                 verdict: "ALLOW"
             }

