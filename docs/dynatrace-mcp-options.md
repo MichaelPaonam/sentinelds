@@ -92,15 +92,20 @@ This phrasing in the user's prompt refers to the *catalogue of tools the Dynatra
 
 ## Recommendation
 
-**Build issue #23 against the Local Dynatrace MCP Server (`@dynatrace-oss/dynatrace-mcp-server`, pinned to a 1.8.x release), spawned over stdio from the Python Sentinel Agent using the [`mcp` PyPI package](https://github.com/modelcontextprotocol/python-sdk), authenticated with a `DT_PLATFORM_TOKEN` env var.**
+**The Sentinel Agent connects to the Dynatrace Remote MCP Server via Streamable HTTP transport, authenticated with a `DT_PLATFORM_TOKEN` env var. The local Node stdio server (`@dynatrace-oss/dynatrace-mcp-server`) was the original choice but has been superseded.**
 
-- **Direct hit on the acceptance criteria.** The two MCP tools issue #23 names by hand — `list_problems` and `execute_dql` — are first-class on this server with those exact names, and `find_entity_by_name` resolves the workspace entity id once at startup. Auth via env-loaded Platform Token cleanly satisfies the "no hardcoded credentials" bullet.
-- **Lowest-friction path to M1 / M2 on the Jun 11 deadline.** Stdio co-locates the server with the Python process — no inbound port, no extra Cloud Run service, sub-second round-trips fit a synchronous pre-flight gate. The Python `mcp` SDK already ships in the project's deps.
-- **Drops the Remote MCP Server** as the *primary* target only because its public schema docs are thinner in June 2026 — but it is the migration target post-hackathon; keep the client behind a transport-abstraction so swapping `stdio_client` for `streamablehttp_client` is one file.
-- **Drops Dynatrace AI Observability** as the gate. It stays in the architecture as the **OTel sink** so the demo dashboard tells the full agent story, and Sentinel's `execute_dql` queries can target spans/events it produces — but it is not synchronously callable.
-- **Drops Workflows** from the pre-flight loop entirely (async, no sync run-and-wait). Keep one slide showing it as the **post-HALT reaction layer** (Sentinel HALT → workflow pages on-call), which is honest to `PLAN.md` section 3 without inflating scope.
+- **Why remote is now primary.** The local server is in maintenance mode (upstream issue #496); Dynatrace steers new users to the Remote MCP Server. The migration spike (2026-06-09) confirmed the remote server exposes the equivalent problem-query and DQL tools and returns parseable responses.
+- **Tool name changes (spike-confirmed).** The remote server uses kebab-case names: `query-problems` (was `list_problems`) and `execute-dql` (was `execute_dql`); the DQL argument key is `dqlQueryString` (was `dqlStatement`). Response shape is 3 TextContent blocks; records are in block[2] under prefix `"Query result records:\n"`. These are handled transparently in `dynatrace_mcp.py` — public function signatures (`list_open_problems`, `run_dql`) are unchanged.
+- **No Node subprocess** in the SentinelDS process tree — cleaner Cloud Run images, no `npx` cold start.
+- **Drops Dynatrace AI Observability** as the gate. It stays in the architecture as the **OTel sink** so the demo dashboard tells the full agent story, and Sentinel's DQL queries can target spans/events it produces — but it is not synchronously callable.
+- **Drops Workflows** from the pre-flight loop entirely (async, no sync run-and-wait). Keep one slide showing it as the **post-HALT reaction layer** (Sentinel HALT → workflow pages on-call).
 
-Caveats acknowledged honestly: the local repo is in maintenance mode, `send_event` is human-approval-gated as of v1.8.6 (so auto-emit Sentinel verdicts over OTel directly, not via `send_event`), and the Davis-on-agent-spans story is **⚠ unverified** as a named feature, so the demo narration says "Sentinel pre-flight queries Dynatrace for problems" rather than "Davis caught the prompt injection."
+### Why we no longer use the Local Dynatrace MCP Server
+
+- Repo is in maintenance mode (upstream issue #496); Dynatrace's active path is the Remote MCP Server.
+- Adds a Node 22.10+ runtime dependency to the SentinelDS process tree.
+- `send_event` is human-approval-gated as of v1.8.6 — auto-emit Sentinel verdicts over OTel directly.
+- Davis-on-agent-spans story is **⚠ unverified** as a named feature regardless of transport.
 
 ---
 
@@ -174,12 +179,11 @@ Live response shapes are pinned in [`dynatrace-mcp-notes.md`](dynatrace-mcp-note
 
 ## Fallback ladder (per issue #23 Risk note)
 
-All four tiers stay behind the same `list_open_problems` / `run_dql` Python signatures so the Sentinel gate code never changes:
+The Remote MCP Server is now the primary transport. All tiers stay behind the same `list_open_problems` / `run_dql` Python signatures so the Sentinel gate code never changes:
 
-1. **MCP transport swap** — re-point `ClientSession` at the **Remote Dynatrace MCP Server** via `mcp.client.streamable_http.streamablehttp_client(<hub_url>)`. Same tool names, same auth, no Node process.
-2. **Direct REST API** — drop MCP entirely, hit `GET /platform/classic/environment-api/v2/problems` and `POST /platform/storage/query/v1/query:execute` with the same `DT_PLATFORM_TOKEN` as `Authorization: Api-Token`. Document the decision in `dynatrace-mcp-notes.md` before any defense logic builds on it.
-3. **Grail unavailable** — degrade `run_dql` to return `[]`; Sentinel relies on `list_problems` plus an in-process counter of recently-emitted custom OTel attack events. Demo story unchanged.
-4. **Last resort for the recorded video (M3 — never compromise M3)** — replay a fixture of `list_problems` / `execute_dql` responses captured during a successful live run. Sentinel logic and demo narration unchanged.
+1. **Direct REST API** — drop MCP entirely, hit `GET /platform/classic/environment-api/v2/problems` and `POST /platform/storage/query/v1/query:execute` with the same `DT_PLATFORM_TOKEN` as `Authorization: Api-Token`. Document the decision in `dynatrace-mcp-notes.md` before any defense logic builds on it.
+2. **Grail unavailable** — degrade `run_dql` to return `[]`; Sentinel relies on `query-problems` plus an in-process counter of recently-emitted custom OTel attack events. Demo story unchanged.
+3. **Last resort for the recorded video (M3 — never compromise M3)** — replay a fixture of `query-problems` / `execute-dql` responses captured during a successful live run. Sentinel logic and demo narration unchanged.
 
 ---
 

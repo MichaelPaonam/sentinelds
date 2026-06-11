@@ -16,13 +16,155 @@ import functools
 import inspect
 import json
 import logging
+import os
 import sys
+from dataclasses import dataclass, field  # noqa: F401 — field reserved for future use
 from enum import Enum
 from typing import Any
 
 from mcp import ClientSession
 
+from core.sentinel_audit import emit_audit, emit_audit_sync
 from sentinel.dynatrace_mcp import list_open_problems, run_dql
+
+
+class DatasetQuarantine:
+    """File-backed JSON store for quarantined dataset SHA-256 checksums."""
+
+    _file_path = "data/quarantine.json"
+
+    @classmethod
+    def _load(cls) -> list[str]:
+        if not os.path.exists(cls._file_path):
+            return []
+        try:
+            with open(cls._file_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return []
+                data = json.loads(content)
+                if isinstance(data, list):
+                    return [str(item) for item in data]
+                return []
+        except Exception as e:
+            logger.warning("Failed to load DatasetQuarantine: %s", e)
+            return []
+
+    @classmethod
+    def _save(cls, checksums: list[str]) -> None:
+        try:
+            dir_name = os.path.dirname(cls._file_path)
+            if dir_name and not os.path.exists(dir_name):
+                os.makedirs(dir_name, exist_ok=True)
+            with open(cls._file_path, "w", encoding="utf-8") as f:
+                json.dump(checksums, f, indent=4)
+        except Exception as e:
+            logger.warning("Failed to save DatasetQuarantine: %s", e)
+
+    @classmethod
+    def add(cls, checksum: str) -> None:
+        """Add a checksum to quarantine idempotently."""
+        checksums = cls._load()
+        if checksum not in checksums:
+            checksums.append(checksum)
+            cls._save(checksums)
+
+    @classmethod
+    def remove(cls, checksum: str) -> bool:
+        """Remove a checksum from quarantine. Returns True if removed."""
+        checksums = cls._load()
+        if checksum in checksums:
+            checksums.remove(checksum)
+            cls._save(checksums)
+            return True
+        return False
+
+    @classmethod
+    def list_all(cls) -> list[str]:
+        """List all quarantined checksums."""
+        return cls._load()
+
+    @classmethod
+    def is_quarantined(cls, checksum: str) -> bool:
+        """Return True if the checksum is in quarantine."""
+        return checksum in cls._load()
+
+
+def emit_dataset_drift_candidate(
+    *,
+    span_id: str,
+    workspace_entity_id: str,
+    dynatrace_api_url: str,
+    dynatrace_api_token: str,
+    checksum: str,
+    label_drift: float,
+    drifted_features: list[str],
+) -> bool:
+    """POST a ``sentinelds.dataset.drift_candidate`` BIZ_EVENT to Dynatrace.
+
+    Uses the Dynatrace Events API v2 (``/api/v2/events/ingest``). The event is
+    attached to the workspace entity so Davis AI and the Sentinel DQL can find
+    it by entity.
+    """
+    import httpx
+
+    event_body: dict = {
+        "eventType": "CUSTOM_INFO",
+        "title": "sentinelds.dataset.drift_candidate",
+        "properties": {
+            "event.type": "sentinelds.dataset.drift_candidate",
+            "event.kind": "BIZ_EVENT",
+            "span.id": span_id,
+            "matched_categories": "dataset_drift",
+            "checksum": checksum,
+            "label_drift": str(label_drift),
+            "drifted_features": ", ".join(drifted_features),
+            "excerpt_hash": checksum[:8] if checksum else "",
+            "workspace_entity_id": workspace_entity_id,
+        },
+    }
+
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        event_body["entitySelector"] = f'type("CUSTOM_DEVICE"),entityId("{workspace_entity_id}")'
+
+    endpoint = f"{dynatrace_api_url.rstrip('/')}/api/v2/events/ingest"
+    headers = {
+        "Authorization": f"Api-Token {dynatrace_api_token}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+
+    emit_audit_sync(
+        {
+            "event.type": "sentinelds.dataset.drift_candidate",
+            "span.id": span_id,
+            "matched_categories": ["dataset_drift"],
+            "checksum": checksum,
+            "label_drift": label_drift,
+            "drifted_features": drifted_features,
+            "excerpt_hash": checksum[:8] if checksum else "",
+            "workspace_entity_id": workspace_entity_id,
+        }
+    )
+
+    try:
+        response = httpx.post(endpoint, json=event_body, headers=headers, timeout=5.0)
+        if response.is_success:
+            logger.info(
+                "sentinelds.dataset.drift_candidate event ingested (span=%s checksum=%s)",
+                span_id,
+                checksum,
+            )
+            return True
+        logger.warning(
+            "Dynatrace events/ingest returned %s for drift: %s",
+            response.status_code,
+            response.text[:200],
+        )
+        return False
+    except Exception as exc:
+        logger.warning("Failed to emit dataset drift candidate event: %s", exc)
+        return False
+
 
 logger = logging.getLogger("sentinel.preflight")
 
@@ -47,14 +189,43 @@ class Verdict(str, Enum):
     HALT = "HALT"
 
 
-def _sentinel_event_dql(workspace_entity_id: str) -> str:
-    """DQL for sentinelds attack-detection events in the last 5 minutes."""
+@dataclass
+class SentinelSession:
+    """Per-run security state. Replaces Sentinel's class-level globals.
+
+    A single instance is created at the start of an agent run and read by
+    every tool gate. Once `compromised` flips to True, all subsequent
+    `sentinel_check` calls return HALT.
+    """
+
+    workspace_entity_id: str
+    mcp_session: ClientSession | None = None
+    agent_name: str = "Unknown Agent"
+    compromised: bool = False
+    compromise_reason: str = ""
+    quarantined: bool = False
+
+
+def _sentinel_event_dql(workspace_entity_id: str, lookback: str = "5m") -> str:
+    """DQL for sentinelds attack-detection events.
+
+    Matches both ``sentinelds.attack.detected`` and ``sentinelds.injection.candidate``
+    so the event-DQL fallback path sees injection events the detector emits via
+    ``emit_injection_candidate`` (which uses the latter type).
+
+    Entity scoping is applied only when ``workspace_entity_id`` looks like a real
+    Dynatrace entity ID. Placeholder values (e.g. ``"WORKSPACE-1"``) are omitted
+    from the filter — the event is still findable via the ``workspace_entity_id``
+    property in the payload.
+    """
+    entity_filter = ""
+    if workspace_entity_id and not workspace_entity_id.startswith("WORKSPACE-"):
+        entity_filter = f'| filter workspace_entity_id == "{workspace_entity_id}"\n'
     return (
-        "fetch events, from:now()-5m\n"
-        '| filter event.kind == "BIZ_EVENT"\n'
-        '   and event.type == "sentinelds.attack.detected"\n'
-        f'| filter dt.entity.workspace == "{workspace_entity_id}"\n'
-        "| fields severity, attack_id, agent\n"
+        f"fetch events, from:now()-{lookback}\n"
+        '| filter event.type == "CUSTOM_INFO" and isNotNull(matched_categories)\n'
+        f"{entity_filter}"
+        "| fields event.type, excerpt_hash, matched_categories, workspace_entity_id\n"
         "| limit 10"
     )
 
@@ -142,7 +313,12 @@ class Sentinel:
             try:
                 # 1) Check active open problems
                 problems = await list_open_problems(sess, ws_id)
-                halt_problems = [p for p in problems if p.get("severity") in _HALT_SEVERITIES]
+                halt_problems = [
+                    p
+                    for p in problems
+                    if p.get("severity") in _HALT_SEVERITIES
+                    or "Dataset Drift" in p.get("title", "")
+                ]
 
                 if halt_problems:
                     decision = Verdict.HALT
@@ -150,10 +326,15 @@ class Sentinel:
                     input_problems = halt_problems
                 else:
                     # 2) Check custom sentinelds events
-                    rows = await run_dql(sess, _sentinel_event_dql(ws_id))
+                    rows = await run_dql(sess, _sentinel_event_dql(ws_id, "5m"))
                     if rows:
                         input_problems = rows
-                        if any(r.get("severity") == "high" for r in rows):
+                        if any(
+                            r.get("severity") == "high"
+                            or r.get("event.type") == "sentinelds.dataset.drift_candidate"
+                            or r.get("eventType") == "sentinelds.dataset.drift_candidate"
+                            for r in rows
+                        ):
                             decision = Verdict.HALT
                             rule_fired = "CUSTOM_EVENT_HALT"
                         else:
@@ -193,7 +374,66 @@ class Sentinel:
         logger.info(structured_log_line)
         print(f"[Sentinel Preflight] {structured_log_line}", file=sys.stderr)
 
+        # Best-effort fan-out to the Sentinel audit sidecar. emit_audit is a
+        # no-op when SENTINEL_AUDIT_URL is unset and swallows all errors, so
+        # this cannot affect the verdict the gate has already decided.
+        try:
+            await emit_audit({"event.type": "sentinel.preflight", **log_payload})
+        except Exception as exc:  # extra belt-and-braces — emit_audit already swallows
+            logger.debug("emit_audit raised unexpectedly: %s", exc)
+
         return decision
+
+    @classmethod
+    async def query_attack_events(
+        cls,
+        session: ClientSession,
+        workspace_entity_id: str,
+        *,
+        lookback: str = "5m",
+    ) -> list[dict[str, Any]]:
+        """Query sentinelds attack/injection events directly via DQL.
+
+        This is the *event-only fallback* path Sentinel relies on when Davis AI
+        has not yet correlated the custom event into a Problem on the workspace
+        entity. The Davis Problem path (``list_open_problems``) is a bonus —
+        correlation can take minutes; the event is queryable in seconds.
+
+        Returns the parsed records (``[]`` when none).
+        """
+        return await run_dql(session, _sentinel_event_dql(workspace_entity_id, lookback))
+
+    @classmethod
+    async def notify(cls, sess: SentinelSession, event_type: str) -> Verdict:
+        """Called when a local detector fires. Sets the compromise flag and
+        optionally enriches with a one-shot MCP query for dashboard signal.
+
+        Decision is **local** — we do not wait for Davis AI to confirm. The
+        detector match is the source of truth for the gate. MCP is best-effort.
+        """
+        # Local detection is sufficient. Set the flag immediately.
+        if event_type.startswith(("injection", "dataset.drift")):
+            sess.compromised = True
+            sess.compromise_reason = event_type
+
+        # Best-effort MCP enrichment for the dashboard story.
+        # Failures must not unset the flag or raise.
+        try:
+            if sess.mcp_session is not None:
+                verdict = await cls.preflight(
+                    session=sess.mcp_session,
+                    workspace_entity_id=sess.workspace_entity_id,
+                    tool_name=event_type,
+                    agent_name=sess.agent_name,
+                )
+                # If MCP says HALT and we haven't already flagged, flag now.
+                if verdict == Verdict.HALT and not sess.compromised:
+                    sess.compromised = True
+                    sess.compromise_reason = f"mcp:{event_type}"
+        except Exception:
+            logger.warning("Sentinel.notify MCP enrichment failed", exc_info=True)
+
+        return Verdict.HALT if sess.compromised else Verdict.ALLOW
 
 
 async def preflight(
@@ -206,7 +446,15 @@ async def preflight(
 
 
 def sentinel_guard(tool_name: str) -> Any:
-    """Decorator to enforce Sentinel pre-flight checks before tool execution."""
+    """Decorator to enforce Sentinel pre-flight checks before tool execution.
+
+    .. deprecated::
+        Use :func:`sentinel_gate` instead. ``sentinel_guard`` performs a
+        blocking MCP round-trip on every call. ``sentinel_gate`` checks the
+        local ``SentinelSession`` flag (O(1)) after the observer has fired
+        ``Sentinel.notify``. This function is kept for backwards compatibility
+        and will be removed in a future release.
+    """
 
     def decorator(func: Any) -> Any:
         """Helper to apply the pre-flight gate to the decorated function."""
@@ -238,5 +486,50 @@ def sentinel_guard(tool_name: str) -> Any:
                 return func(*args, **kwargs)
 
             return sync_wrapper
+
+    return decorator
+
+
+def sentinel_check(sess: SentinelSession) -> Verdict:
+    """Local flag check. No MCP. O(1)."""
+    return Verdict.HALT if sess.compromised else Verdict.ALLOW
+
+
+def sentinel_gate(tool_name: str) -> Any:
+    """Decorator: halt the tool call if the active SentinelSession is compromised.
+
+    Reads the active session via ``sentinel.session.get_sentinel_session()``. If no
+    session is set (e.g. unit tests not using contextvars), the gate is a no-op
+    — call proceeds. Production callers must always ``set_sentinel_session(...)``
+    at the top of a run.
+    """
+    from sentinel.session import get_sentinel_session  # local import: avoids circular
+
+    def decorator(func: Any) -> Any:
+        if inspect.iscoroutinefunction(func):
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                sess = get_sentinel_session()
+                if sess is not None and sentinel_check(sess) == Verdict.HALT:
+                    raise PermissionError(
+                        f"Sentinel halted '{tool_name}' — workspace compromised "
+                        f"({sess.compromise_reason})."
+                    )
+                return await func(*args, **kwargs)
+
+            return async_wrapper
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            sess = get_sentinel_session()
+            if sess is not None and sentinel_check(sess) == Verdict.HALT:
+                raise PermissionError(
+                    f"Sentinel halted '{tool_name}' — workspace compromised "
+                    f"({sess.compromise_reason})."
+                )
+            return func(*args, **kwargs)
+
+        return sync_wrapper
 
     return decorator

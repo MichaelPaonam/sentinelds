@@ -71,6 +71,7 @@ coverage.xml
 # Logs & local data
 *.log
 logs/
+data/
 data/raw/
 data/interim/
 data/processed/
@@ -78,6 +79,7 @@ data/processed/
 *.duckdb
 *.sqlite
 *.db
+*.txt
 
 # Models & artifacts
 models/
@@ -85,6 +87,8 @@ models/
 *.joblib
 *.onnx
 mlruns/
+catboost_info/
+
 
 # OpenTelemetry / traces dumps
 traces/
@@ -101,6 +105,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 CLAUDE.md
-AGENTS.md
 .mcp.json
 features.csv
+data/ecg_csv/ddd/_e2e_combined.csv

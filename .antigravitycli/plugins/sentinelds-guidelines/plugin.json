@@ -1,0 +1,15 @@
+{
+  "name": "sentinelds-guidelines",
+  "version": "1.0.0",
+  "description": "Exposing Karpathy-inspired coding standards and SentinelDS pre-flight operational skills",
+  "author": {
+    "name": "SentinelDS Team"
+  },
+  "license": "MIT",
+  "keywords": [
+    "antigravity",
+    "karpathy",
+    "skills",
+    "sentinelds"
+  ]
+}
