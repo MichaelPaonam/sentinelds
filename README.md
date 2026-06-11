@@ -8,11 +8,11 @@ An agentic data-science workspace defended by Dynatrace, submitted to the [Googl
 
 ## What it is
 
-Three specialist agents collaborate on a real data-science mission — building a **truck-driver drowsiness-detection** model from EEG, video, and sensor data:
+Three specialist agents collaborate on a real data-science mission — building a **machine learning** model (eg: drowsiness-detection) from raw data collected:
 
-- **Research Agent** — surveys papers and blog posts; summarizes the problem space (EEG vs camera-based approaches, fatigue biomarkers, regulatory standards).
-- **Feature Engineering Agent** — pulls drowsiness datasets, profiles them, builds features (eye-aspect ratio, yawn frequency, head-pose angles).
-- **Modelling Agent** — selects models, runs hyperparameter tuning, reports metrics with a focus on false-negative rate (safety-critical).
+- **Research Agent** — surveys papers and blog posts; summarizes the problem space (literature survey, metrics, existing systems).
+- **Feature Engineering Agent** — pulls drowsiness datasets, profiles them, builds features (exploratory data analysis, statistical analysis).
+- **Modelling Agent** — selects models, runs hyperparameter tuning, reports metrics with a focus on KPIs (predictions).
 
 Every LLM call, tool call, and dataset I/O is wrapped in OpenTelemetry and shipped to **Dynatrace SaaS**. **Davis AI** baselines the workspace and raises Problems on anomalous behavior. A separate **Sentinel Agent** queries Dynatrace over the **MCP** before each risky tool call and decides **ALLOW / WARN / HALT** — a deterministic, fail-closed gate that catches what model-layer safety tuning cannot.
 
@@ -313,6 +313,7 @@ The threat-modelling and detection design draws on:
 - **MITRE ATLAS™** — AML.T0051 (Indirect Prompt Injection), AML.T0020 (Poison Training Data)
 - **Simon Willison** — practical writeups on indirect prompt injection
 - **[google/adk-samples](https://github.com/google/adk-samples)** — ADK sub-agent patterns referenced during implementation of the Research, Feature Engineering, and Modelling agents
+- [**Drowsiness Dectection**](https://github.com/MichaelPaonam/drowsiness-detection) - machine learning model build by the team
 
 Detailed citations in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md).
 
