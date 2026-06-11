@@ -33,6 +33,7 @@ from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
 from observability import current_span, traced_tool
+from sentinel.preflight import sentinel_gate
 
 # Default models output directory
 MODELS_DIR = "models"
@@ -459,6 +460,7 @@ def load_features(csv_path: str, target_col: str) -> dict[str, Any]:
 
 
 @traced_tool("train_xgboost")
+@sentinel_gate("train_xgboost")
 def train_xgboost(
     csv_path: str,
     target_col: str,
@@ -558,6 +560,7 @@ def train_xgboost(
 
 
 @traced_tool("train_catboost")
+@sentinel_gate("train_catboost")
 def train_catboost(
     csv_path: str,
     target_col: str,
