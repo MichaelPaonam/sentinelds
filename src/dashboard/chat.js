@@ -590,10 +590,17 @@ Local telemetry emitted event: sentinelds.dataset.drift_candidate.`;
     // VISUAL CONSOLE STREAM HELPERS
     // =========================================================================
 
+    function sanitizeSystemLogHtml(text) {
+        const escaped = escapeHtml(String(text));
+        return escaped
+            .replace(/&lt;code&gt;/g, '<code>')
+            .replace(/&lt;\/code&gt;/g, '</code>');
+    }
+
     function appendSystemLog(text) {
         const div = document.createElement('div');
         div.className = 'chat-message system-log';
-        div.innerHTML = `&gt;&gt;&gt; ${text}`;
+        div.innerHTML = `&gt;&gt;&gt; ${sanitizeSystemLogHtml(text)}`;
         chatStream.appendChild(div);
         scrollToBottom();
     }
