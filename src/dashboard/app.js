@@ -776,10 +776,10 @@ document.addEventListener('DOMContentLoaded', () => {
             tool = `web_fetch('https://academic-papers.org/study-${Math.floor(10 + Math.random()*90)}')`;
             policy = "Whitelisted Domain";
         } else if (agent === "Feature Eng. Agent") {
-            tool = `csv_read('src/data/batch_segment_${Math.floor(1 + Math.random()*5)}.csv')`;
+            tool = `csv_read('gs://sentinelds-data-buckets/raw/ecg_batch_${Math.floor(1 + Math.random()*5)}.csv')`;
             policy = "Local Read Authorization";
         } else {
-            tool = `evaluate_holdout('models/candidate_v${Math.floor(1 + Math.random()*3)}.pkl')`;
+            tool = `evaluate_holdout('gs://sentinelds-data-buckets/models/candidate_v${Math.floor(1 + Math.random()*3)}.pkl')`;
             policy = "Model Evaluation Validation";
         }
 
