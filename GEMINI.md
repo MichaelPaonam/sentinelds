@@ -33,28 +33,9 @@ In traditional software, security is built on static access controls and perimet
 
 The workspace is composed of four distinct agents built using the Google Agent Development Kit (ADK) and orchestrated via sequential session execution.
 
-```mermaid
-graph TD
-    User([User Request]) --> Orchestrator[ADK Workspace Orchestrator]
-    
-    subgraph Agents ["Agent Execution Pool"]
-        A_Res[Research Agent]
-        A_Feat[Feature Eng. Agent]
-        A_Mod[Modelling Agent]
-    end
+![SentinelDS architecture](docs/architecture.svg)
 
-    subgraph Supervisor ["Security Layer"]
-        A_Sent[Sentinel Agent / Pre-flight]
-    end
-
-    Orchestrator --> A_Res
-    Orchestrator --> A_Feat
-    Orchestrator --> A_Mod
-
-    A_Res -->|tool: web_fetch| A_Sent
-    A_Feat -->|tool: csv_read| A_Sent
-    A_Mod -->|tool: train_xgboost| A_Sent
-```
+For the engineering reference view — framework names, per-agent tool lists, and the OTLP / MCP feedback loop labelled — see [`docs/architecture-detailed.png`](docs/architecture-detailed.png).
 
 ### Agent Roles & Toolsets
 

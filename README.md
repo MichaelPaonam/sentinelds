@@ -90,46 +90,9 @@ Out of scope for the hackathon: governance artifacts (AI Governance Council, NHI
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph workspace["SentinelDS Workspace (Google Cloud / ADK)"]
-        direction TB
+![SentinelDS architecture](./docs/architecture.svg)
 
-        subgraph agents["Three Gemini Agents"]
-            direction LR
-            RA["Research Agent\nlit_searcher · lit_fetcher"]
-            FA["Feature Eng Agent\ndataset_profiler · feature_transformer"]
-            MA["Modelling Agent\nXGBoost · CatBoost · reporter"]
-        end
-
-        OTel["OpenTelemetry Layer\nLLM · tool · MCP · I/O spans"]
-        ID["Injection Detector\nlocal regex scan on fetch_url\n→ SentinelSession.compromised"]
-        SG["@sentinel_gate\nO(1) flag check on every tool call"]
-
-        RA -- "fetch_url" --> ID
-        ID -- "notify()" --> SG
-        RA -- tool calls --> OTel
-        FA -- tool calls --> OTel
-        MA -- tool calls --> OTel
-    end
-
-    OTel -- "OTLP/HTTP" --> DT
-
-    subgraph dynatrace["Dynatrace SaaS"]
-        DT["Traces · Davis AI · Problems"]
-    end
-
-    DT -- "MCP: query-problems\nexecute-dql" --> SA
-    ID -. "best-effort enrichment\n(A1 only)" .-> SA
-
-    SA["Sentinel Agent\npreflight() → ALLOW/WARN/HALT\n(A2 critical path)"]
-    SA -. "pre-flight decision\n(A2: training gate)" .-> FA
-    SG -. "PermissionError\n(A1: next fetch halted)" .-> RA
-```
-
-![diagram](./docs/architecture.svg)
-
-Full architecture, including span-attribute schemas and trust boundaries, is in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
+For the engineering reference view — framework names, tool lists per agent, and the OTLP / MCP feedback loop labelled — see [`docs/architecture-detailed.png`](docs/architecture-detailed.png). Full span-attribute schemas and trust boundaries are in [`docs/ai-security-threat-modelling.md`](docs/ai-security-threat-modelling.md) sections 6–7.
 
 ---
 
