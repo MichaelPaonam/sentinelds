@@ -38,7 +38,10 @@ a2a_research_agent = to_a2a(
     protocol="http",
     agent_card=AgentCard(
         name="research_agent",
-        description="Research Agent: surveys literature to extract insights and inform feature engineering and modeling.",
+        description=(
+            "Research Agent: surveys literature to extract insights and "
+            "inform feature engineering and modeling."
+        ),
         url=f"http://localhost:{INTERNAL_PORT}",
         version="1.0.0",
         capabilities=AgentCapabilities(streaming=True),

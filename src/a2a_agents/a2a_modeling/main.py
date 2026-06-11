@@ -38,7 +38,10 @@ a2a_modeling_agent = to_a2a(
     protocol="http",
     agent_card=AgentCard(
         name="modeling_agent",
-        description="Modeling Agent: trains XGBoost and CatBoost classifiers on engineered features and produces evaluation reports.",
+        description=(
+            "Modeling Agent: trains XGBoost and CatBoost classifiers on "
+            "engineered features and produces evaluation reports."
+        ),
         url=f"http://localhost:{INTERNAL_PORT}",
         version="1.0.0",
         capabilities=AgentCapabilities(streaming=True),

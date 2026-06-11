@@ -38,7 +38,10 @@ a2a_feature_agent = to_a2a(
     protocol="http",
     agent_card=AgentCard(
         name="feature_agent",
-        description="Feature Engineering Agent: profiles datasets and transforms raw ECG signals into ML-ready features.",
+        description=(
+            "Feature Engineering Agent: profiles datasets and transforms "
+            "raw ECG signals into ML-ready features."
+        ),
         url=f"http://localhost:{INTERNAL_PORT}",
         version="1.0.0",
         capabilities=AgentCapabilities(streaming=True),

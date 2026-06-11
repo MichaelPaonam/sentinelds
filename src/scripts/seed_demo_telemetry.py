@@ -1,7 +1,8 @@
 """Telemetry seeder script for SentinelDS.
 
 This script programmatically uploads live OTel traces, custom business events,
-and security audit logs directly to Dynatrace to populate the DQL dashboard widgets with authentic, high-fidelity data.
+and security audit logs directly to Dynatrace to populate the DQL dashboard
+widgets with authentic, high-fidelity data.
 
 Specifically, it uploads:
 1. A clean Happy-Path trace representing normal tool use.
@@ -240,7 +241,8 @@ def seed_threat_a1(workspace_id: str) -> None:
         )
         if matches:
             print(
-                f"  [BizEvent] Found {len(matches)} injection match(es). Posting sentinelds.injection.candidate to Dynatrace..."
+                f"  [BizEvent] Found {len(matches)} injection match(es). "
+                "Posting sentinelds.injection.candidate to Dynatrace..."
             )
             ok = emit_injection_candidate(
                 matches=matches,
@@ -253,7 +255,8 @@ def seed_threat_a1(workspace_id: str) -> None:
             print(f"  [BizEvent] API Response status: {ok}")
 
         print(
-            "  [Sentinel] Hijacked agent attempts to exfiltrate dataset. Pre-flight check triggered!"
+            "  [Sentinel] Hijacked agent attempts to exfiltrate dataset. "
+            "Pre-flight check triggered!"
         )
 
         # Pre-flight check for next tool call fails closed (HALT verdict) due to the candidate event
@@ -272,7 +275,10 @@ def seed_threat_a1(workspace_id: str) -> None:
             "tool": "web_fetch",
             "rule_fired": "SENTINEL_QUARANTINE",
             "decision": "HALT",
-            "reason": "Sentinel halted 'web_fetch' due to active security risk (Indirect Prompt Injection).",
+            "reason": (
+                "Sentinel halted 'web_fetch' due to active security risk "
+                "(Indirect Prompt Injection)."
+            ),
         }
         log_content = f"[SECURITY AUDIT] {json.dumps(audit_payload)}"
         emit_log_to_dynatrace(log_content, "sentinelds-research-agent")
@@ -323,7 +329,8 @@ def seed_threat_a2(workspace_id: str) -> None:
             time.sleep(0.6)
 
         print(
-            "  [Detection] Dataset drift detected! Emitting sentinelds.dataset.drift_candidate to Dynatrace..."
+            "  [Detection] Dataset drift detected! "
+            "Emitting sentinelds.dataset.drift_candidate to Dynatrace..."
         )
         ok = emit_dataset_drift_candidate(
             span_id=span_id,
@@ -340,7 +347,7 @@ def seed_threat_a2(workspace_id: str) -> None:
     with t_modeling.start_as_current_span("ModellingWorkflow") as parent_span:
         print("  [Modeling] Attempting to execute train_xgboost...")
 
-        # Pre-flight check blocks the training call due to the extreme label drift on the active session
+        # Pre-flight check blocks training due to extreme label drift on active session
         with t_sentinel.start_as_current_span("SentinelPreflight") as pf_span:
             pf_span.set_attribute("tool.name", "SentinelPreflight")
             pf_span.set_attribute("preflight.tool", "train_xgboost")
