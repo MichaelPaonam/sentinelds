@@ -18,15 +18,17 @@ FEATURE_AGENT_SYSTEM_PROMPT = (
 )
 
 
+# Default demo CSV fallback (issue #92): synthetic drowsiness dataset with
+# eye_aspect_ratio, yawn_count, head_pose_yaw, head_pose_pitch, label — not raw ECG.
 DATA_PROFILER_INSTRUCTION = (
     "You are a Data Profiling Specialist within the Feature Engineering Agent.\n"
     "Your job is to read and analyze raw datasets to understand their shape, "
     "features, and statistics.\n\n"
     "1. Locate the target raw dataset specified in the task or session context.\n"
     "Use the exact CSV file path provided in the task — do not modify, shorten, or retype it. "
-    "If no path is specified in the user prompt or task context, proactively check for drowsiness "
-    "detection datasets under 'gs://sentinelds-data-buckets' (e.g. "
-    "'gs://sentinelds-data-buckets/data/ecg_csv/ddd/01M_1.csv') and use that as the raw dataset.\n"
+    "If no path is specified in the user prompt or task context, default to "
+    "'src/attack_server/data/clean.csv' — the synthetic drowsiness demo dataset with "
+    "eye_aspect_ratio, yawn_count, head_pose_yaw, head_pose_pitch, and label columns.\n"
     "2. Use `csv_read` to read the columns, shape, and get a preview of the dataset.\n"
     "3. Use `pandas_profile` to compute descriptive statistics, column distributions, "
     "null values, and class proportions.\n"
