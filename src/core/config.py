@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     E2E_PAPER_URL: str = "http://localhost:8001/papers"
     E2E_TARGET_COL: str = "label"
     E2E_COMBINED_CSV: str = "data/ecg_csv/ddd/_e2e_combined.csv"
+    FEATURES_CSV: str = "features.csv"
 
 
 # Global configuration instance

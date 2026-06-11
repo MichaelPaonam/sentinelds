@@ -123,8 +123,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the Modelling Agent standalone CLI.")
     parser.add_argument(
         "--features",
-        default="features.csv",
-        help="Path to the features CSV file (default: features.csv)",
+        default=settings.FEATURES_CSV,
+        help=f"Path to the features CSV file (default: {settings.FEATURES_CSV})",
     )
     parser.add_argument(
         "--target",
