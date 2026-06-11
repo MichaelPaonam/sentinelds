@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state === "working") {
                 const msg = result.status.message;
                 if (msg && msg.parts) {
-                    const agentName = (result.metadata && result.metadata.agent) || msg.role || "Orchestrator";
+                    const agentName = (result.metadata && (result.metadata.adk_author || result.metadata.agent)) || msg.role || "Orchestrator";
                     for (const part of msg.parts) {
                         if (part.kind === "text" || part.text) {
                             appendAgentMessage(agentName, "", part.text || "");
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kind === "artifact-update") {
             const artifact = result.artifact;
             if (!artifact || !artifact.parts) return false;
-            const agentName = (result.metadata && result.metadata.agent) || "Orchestrator";
+            const agentName = (result.metadata && (result.metadata.adk_author || result.metadata.agent)) || "Orchestrator";
             const artifactId = artifact.artifactId;
             for (const part of artifact.parts) {
                 if (part.kind === "text" || part.text) {
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kind === "message") {
             const msg = result;
             if (msg.parts) {
-                const agentName = (result.metadata && result.metadata.agent) || msg.role || "Orchestrator";
+                const agentName = (result.metadata && (result.metadata.adk_author || result.metadata.agent)) || msg.role || "Orchestrator";
                 for (const part of msg.parts) {
                     if (part.kind === "text" || part.text) {
                         appendAgentMessage(agentName, "", part.text || "");
