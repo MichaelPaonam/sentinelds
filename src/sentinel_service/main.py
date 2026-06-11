@@ -161,14 +161,16 @@ def _buffer_decision(event_type: str, payload: dict[str, Any]) -> None:
     else:
         return  # Ignore unknown event types
 
-    _recent_decisions.appendleft({
-        "time": now,
-        "agent": _normalise_agent_name(agent_raw),
-        "tool": tool,
-        "policy": policy,
-        "verdict": verdict,
-        "has_problems": bool(problems),
-    })
+    _recent_decisions.appendleft(
+        {
+            "time": now,
+            "agent": _normalise_agent_name(agent_raw),
+            "tool": tool,
+            "policy": policy,
+            "verdict": verdict,
+            "has_problems": bool(problems),
+        }
+    )
 
 
 def _normalise_agent_name(raw: str) -> str:
@@ -219,11 +221,13 @@ async def dashboard_feed() -> JSONResponse:
     problems = await _fetch_live_problems()
     agent_statuses = _derive_agent_statuses(decisions, problems)
 
-    return JSONResponse(content={
-        "decisions": decisions,
-        "problems": problems,
-        "agent_statuses": agent_statuses,
-    })
+    return JSONResponse(
+        content={
+            "decisions": decisions,
+            "problems": problems,
+            "agent_statuses": agent_statuses,
+        }
+    )
 
 
 async def _fetch_live_problems() -> list[dict[str, Any]]:
@@ -235,6 +239,7 @@ async def _fetch_live_problems() -> list[dict[str, Any]]:
             dynatrace_session,
             list_open_problems,
         )
+
         cfg = DynatraceMCPConfig.from_env()
         async with dynatrace_session(cfg) as session:
             raw = await list_open_problems(session, workspace_id)
@@ -245,14 +250,16 @@ async def _fetch_live_problems() -> list[dict[str, Any]]:
             desc = str(p.get("event.description") or p.get("description") or "")
             severity_raw = str(p.get("severity") or "warning").lower()
             severity = "severe" if severity_raw in ("critical", "error", "severe") else "warning"
-            problems.append({
-                "id": str(p.get("id") or p.get("problem_id") or "P-LIVE"),
-                "title": title,
-                "desc": desc,
-                "severity": severity,
-                "severityText": "Critical" if severity == "severe" else "Warning",
-                "timeOffset": "Active",
-            })
+            problems.append(
+                {
+                    "id": str(p.get("id") or p.get("problem_id") or "P-LIVE"),
+                    "title": title,
+                    "desc": desc,
+                    "severity": severity,
+                    "severityText": "Critical" if severity == "severe" else "Warning",
+                    "timeOffset": "Active",
+                }
+            )
         return problems
     except Exception as exc:
         logger.debug("dashboard-feed: MCP problem fetch failed: %s", exc)

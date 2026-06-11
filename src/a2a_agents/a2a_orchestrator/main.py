@@ -23,6 +23,7 @@ from a2a.types import AgentCapabilities, AgentCard  # noqa: E402
 from google.adk.a2a.utils.agent_to_a2a import to_a2a  # noqa: E402
 from google.adk.agents import SequentialAgent  # noqa: E402
 from google.adk.agents.remote_a2a_agent import RemoteA2aAgent  # noqa: E402
+
 from core import genai_compat  # noqa: E402,F401
 
 logging.disable(level=logging.WARNING)
